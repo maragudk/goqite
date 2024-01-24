@@ -18,10 +18,15 @@ type logger interface {
 type NewOpts struct {
 	DB         *sql.DB
 	Log        logger
-	MaxReceive int
-	Timeout    time.Duration
+	MaxReceive int           // Max receive count for messages before they cannot be received anymore.
+	Timeout    time.Duration // Default timeout for messages before they can be re-received.
 }
 
+// New Queue with the given options.
+// Defaults if not given:
+// - Logs are discarded.
+// - Max receive count is 3.
+// - Timeout is a second.
 func New(opts NewOpts) *Queue {
 	if opts.DB == nil {
 		panic("DB cannot be nil")
@@ -70,6 +75,7 @@ type Message struct {
 	Body  []byte
 }
 
+// Send a Message to the queue with an optional delay.
 func (q *Queue) Send(ctx context.Context, m Message) error {
 	if m.Delay < 0 {
 		return errors.New("delay cannot be negative")
@@ -84,6 +90,7 @@ func (q *Queue) Send(ctx context.Context, m Message) error {
 	return nil
 }
 
+// Receive a Message from the queue, or nil if there is none.
 func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	now := time.Now()
 	nowFormatted := now.Format(rfc3339Milli)
@@ -114,6 +121,7 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	return &m, nil
 }
 
+// Delete a Message from the queue by id.
 func (q *Queue) Delete(ctx context.Context, id ID) error {
 	_, err := q.db.ExecContext(ctx, `delete from queue where id = ?`, id)
 	return err
