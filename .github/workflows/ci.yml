@@ -33,6 +33,10 @@ jobs:
       - name: Test
         run: go test -v -coverprofile=cover.out -shuffle on ./...
 
+      - uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
