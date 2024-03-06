@@ -72,7 +72,7 @@ func TestGoqiteHandler_Put(t *testing.T) {
 		is.Equal(t, http.StatusOK, code)
 		is.Equal(t, "yo", string(res.Message.Body))
 
-		code, _, res = newRequest(t, h, http.MethodPut, &goqite.Message{
+		code, _, _ = newRequest(t, h, http.MethodPut, &goqite.Message{
 			ID:    res.Message.ID,
 			Delay: time.Second,
 		})
