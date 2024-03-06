@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -84,13 +85,20 @@ type Message struct {
 
 // Send a Message to the queue with an optional delay.
 func (q *Queue) Send(ctx context.Context, m Message) error {
+	return q.inTx(ctx, func(tx *sql.Tx) error {
+		return q.SendTx(ctx, tx, m)
+	})
+}
+
+// SendTx is like Send, but within an existing transaction.
+func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) error {
 	if m.Delay < 0 {
 		panic("delay cannot be negative")
 	}
 
 	timeout := time.Now().Add(m.Delay).Format(rfc3339Milli)
 
-	_, err := q.db.ExecContext(ctx, `insert into goqite (queue, body, timeout) values (?, ?, ?)`, q.name, m.Body, timeout)
+	_, err := tx.ExecContext(ctx, `insert into goqite (queue, body, timeout) values (?, ?, ?)`, q.name, m.Body, timeout)
 	if err != nil {
 		return err
 	}
@@ -99,6 +107,17 @@ func (q *Queue) Send(ctx context.Context, m Message) error {
 
 // Receive a Message from the queue, or nil if there is none.
 func (q *Queue) Receive(ctx context.Context) (*Message, error) {
+	var m *Message
+	err := q.inTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		m, err = q.ReceiveTx(ctx, tx)
+		return err
+	})
+	return m, err
+}
+
+// ReceiveTx is like Receive, but within an existing transaction.
+func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 	now := time.Now()
 	nowFormatted := now.Format(rfc3339Milli)
 	timeoutFormatted := now.Add(q.timeout).Format(rfc3339Milli)
@@ -120,7 +139,7 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 		returning id, body`
 
 	var m Message
-	if err := q.db.QueryRowContext(ctx, query, timeoutFormatted, q.name, nowFormatted, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
+	if err := tx.QueryRowContext(ctx, query, timeoutFormatted, q.name, nowFormatted, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -129,21 +148,65 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	return &m, nil
 }
 
-// Extend a message timeout by the given delay from now.
+// Extend a Message timeout by the given delay from now.
 func (q *Queue) Extend(ctx context.Context, id ID, delay time.Duration) error {
+	return q.inTx(ctx, func(tx *sql.Tx) error {
+		return q.ExtendTx(ctx, tx, id, delay)
+	})
+}
+
+// ExtendTx is like Extend, but within an existing transaction.
+func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Duration) error {
 	if delay < 0 {
 		panic("delay cannot be negative")
 	}
 
 	timeout := time.Now().Add(delay).Format(rfc3339Milli)
 
-	_, err := q.db.ExecContext(ctx, `update goqite set timeout = ? where queue = ? and id = ?`, timeout, q.name, id)
+	_, err := tx.ExecContext(ctx, `update goqite set timeout = ? where queue = ? and id = ?`, timeout, q.name, id)
 	return err
 }
 
 // Delete a Message from the queue by id.
 func (q *Queue) Delete(ctx context.Context, id ID) error {
-	_, err := q.db.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
+	return q.inTx(ctx, func(tx *sql.Tx) error {
+		return q.DeleteTx(ctx, tx, id)
+	})
+}
+
+// DeleteTx is like Delete, but within an existing transaction.
+func (q *Queue) DeleteTx(ctx context.Context, tx *sql.Tx, id ID) error {
+	_, err := tx.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
+	return err
+}
+
+func (q *Queue) inTx(ctx context.Context, cb func(*sql.Tx) error) (err error) {
+	tx, txErr := q.db.Begin()
+	if txErr != nil {
+		return fmt.Errorf("cannot start tx: %w", txErr)
+	}
+
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = rollback(tx, fmt.Errorf("panic: %v", rec))
+		}
+	}()
+
+	if err := cb(tx); err != nil {
+		return rollback(tx, err)
+	}
+
+	if txErr := tx.Commit(); txErr != nil {
+		return fmt.Errorf("cannot commit tx: %w", txErr)
+	}
+
+	return nil
+}
+
+func rollback(tx *sql.Tx, err error) error {
+	if txErr := tx.Rollback(); txErr != nil {
+		return fmt.Errorf("cannot roll back tx after error (tx error: %v), original error: %w", txErr, err)
+	}
 	return err
 }
 
