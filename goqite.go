@@ -85,7 +85,7 @@ type Message struct {
 // Send a Message to the queue with an optional delay.
 func (q *Queue) Send(ctx context.Context, m Message) error {
 	if m.Delay < 0 {
-		return errors.New("delay cannot be negative")
+		panic("delay cannot be negative")
 	}
 
 	timeout := time.Now().Add(m.Delay).Format(rfc3339Milli)
@@ -129,9 +129,21 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	return &m, nil
 }
 
+// Extend a message timeout by the given delay from now.
+func (q *Queue) Extend(ctx context.Context, id ID, delay time.Duration) error {
+	if delay < 0 {
+		panic("delay cannot be negative")
+	}
+
+	timeout := time.Now().Add(delay).Format(rfc3339Milli)
+
+	_, err := q.db.ExecContext(ctx, `update goqite set timeout = ? where queue = ? and id = ?`, timeout, q.name, id)
+	return err
+}
+
 // Delete a Message from the queue by id.
 func (q *Queue) Delete(ctx context.Context, id ID) error {
-	_, err := q.db.ExecContext(ctx, `delete from goqite where id = ?`, id)
+	_, err := q.db.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
 	return err
 }
 

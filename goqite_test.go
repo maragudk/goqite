@@ -130,6 +130,30 @@ func TestQueue(t *testing.T) {
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
+
+	t.Run("does not receive a message that has had the timeout extended", func(t *testing.T) {
+		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
+
+		m := &goqite.Message{
+			Body: []byte("yo"),
+		}
+
+		err := q.Send(context.Background(), *m)
+		is.NotError(t, err)
+
+		m, err = q.Receive(context.Background())
+		is.NotError(t, err)
+		is.NotNil(t, m)
+
+		err = q.Extend(context.Background(), m.ID, time.Second)
+		is.NotError(t, err)
+
+		time.Sleep(time.Millisecond)
+
+		m, err = q.Receive(context.Background())
+		is.NotError(t, err)
+		is.Nil(t, m)
+	})
 }
 
 func BenchmarkQueue(b *testing.B) {
