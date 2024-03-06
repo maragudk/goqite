@@ -18,7 +18,8 @@ type logger interface {
 type NewOpts struct {
 	DB         *sql.DB
 	Log        logger
-	MaxReceive int           // Max receive count for messages before they cannot be received anymore.
+	MaxReceive int // Max receive count for messages before they cannot be received anymore.
+	Name       string
 	Timeout    time.Duration // Default timeout for messages before they can be re-received.
 }
 
@@ -26,10 +27,14 @@ type NewOpts struct {
 // Defaults if not given:
 // - Logs are discarded.
 // - Max receive count is 3.
-// - Timeout is a second.
+// - Timeout is five seconds.
 func New(opts NewOpts) *Queue {
 	if opts.DB == nil {
-		panic("DB cannot be nil")
+		panic("db cannot be nil")
+	}
+
+	if opts.Name == "" {
+		panic("name cannot be empty")
 	}
 
 	if opts.Log == nil {
@@ -49,11 +54,12 @@ func New(opts NewOpts) *Queue {
 	}
 
 	if opts.Timeout == 0 {
-		opts.Timeout = time.Second
+		opts.Timeout = 5 * time.Second
 	}
 
 	return &Queue{
 		db:         opts.DB,
+		name:       opts.Name,
 		log:        opts.Log,
 		maxReceive: opts.MaxReceive,
 		timeout:    opts.Timeout,
@@ -64,6 +70,7 @@ type Queue struct {
 	db         *sql.DB
 	log        logger
 	maxReceive int
+	name       string
 	timeout    time.Duration
 }
 
@@ -83,7 +90,7 @@ func (q *Queue) Send(ctx context.Context, m Message) error {
 
 	timeout := time.Now().Add(m.Delay).Format(rfc3339Milli)
 
-	_, err := q.db.ExecContext(ctx, `insert into queue (body, timeout) values (?, ?)`, m.Body, timeout)
+	_, err := q.db.ExecContext(ctx, `insert into goqite (queue, body, timeout) values (?, ?, ?)`, q.name, m.Body, timeout)
 	if err != nil {
 		return err
 	}
@@ -97,13 +104,14 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	timeoutFormatted := now.Add(q.timeout).Format(rfc3339Milli)
 
 	query := `
-		update queue
+		update goqite
 		set
 			timeout = ?,
 			received = received + 1
 		where id = (
-			select id from queue
+			select id from goqite
 			where
+				queue = ? and
 				? >= timeout and
 				received < ?
 			order by created
@@ -112,7 +120,7 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 		returning id, body`
 
 	var m Message
-	if err := q.db.QueryRowContext(ctx, query, timeoutFormatted, nowFormatted, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
+	if err := q.db.QueryRowContext(ctx, query, timeoutFormatted, q.name, nowFormatted, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -123,7 +131,7 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 
 // Delete a Message from the queue by id.
 func (q *Queue) Delete(ctx context.Context, id ID) error {
-	_, err := q.db.ExecContext(ctx, `delete from queue where id = ?`, id)
+	_, err := q.db.ExecContext(ctx, `delete from goqite where id = ?`, id)
 	return err
 }
 
