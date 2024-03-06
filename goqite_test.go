@@ -71,7 +71,7 @@ func TestQueue(t *testing.T) {
 	})
 
 	t.Run("does not receive a message twice in a row", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{Timeout: time.Second}, ":memory:")
+		q := newQ(t, goqite.NewOpts{}, ":memory:")
 
 		m := &goqite.Message{
 			Body: []byte("yo"),
@@ -118,6 +118,18 @@ func TestQueue(t *testing.T) {
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
+
+	t.Run("does not receive a message from a different queue", func(t *testing.T) {
+		q1 := newQ(t, goqite.NewOpts{}, "test.db")
+		q2 := newQ(t, goqite.NewOpts{Name: "q2"}, "test.db")
+
+		err := q1.Send(context.Background(), goqite.Message{Body: []byte("yo")})
+		is.NotError(t, err)
+
+		m, err := q2.Receive(context.Background())
+		is.NotError(t, err)
+		is.Nil(t, m)
+	})
 }
 
 func BenchmarkQueue(b *testing.B) {
@@ -145,7 +157,13 @@ func BenchmarkQueue(b *testing.B) {
 func newQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
 	t.Helper()
 
-	if path != ":memory:" {
+	// Check if file exists already
+	exists := false
+	if _, err := os.Stat(path); err == nil {
+		exists = true
+	}
+
+	if path != ":memory:" && !exists {
 		t.Cleanup(func() {
 			for _, p := range []string{path, path + "-shm", path + "-wal"} {
 				if err := os.Remove(p); err != nil {
@@ -161,12 +179,19 @@ func newQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
-	_, err = db.Exec(schema)
-	if err != nil {
-		t.Fatal(err)
+
+	if !exists {
+		_, err = db.Exec(schema)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	opts.DB = db
+
+	if opts.Name == "" {
+		opts.Name = "test"
+	}
 
 	return goqite.New(opts)
 }
