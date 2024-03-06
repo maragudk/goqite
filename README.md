@@ -1,18 +1,20 @@
 # goqite
 
-<img src="logo.png" alt="Logo" width="300" align="right">
+<img src="docs/logo.png" alt="Logo" width="300" align="right">
 
 [![GoDoc](https://pkg.go.dev/badge/github.com/maragudk/goqite)](https://pkg.go.dev/github.com/maragudk/goqite)
 [![Go](https://github.com/maragudk/goqite/actions/workflows/ci.yml/badge.svg)](https://github.com/maragudk/goqite/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/maragudk/goqite/graph/badge.svg?token=DxGkk2lLHF)](https://codecov.io/gh/maragudk/goqite)
 
-goqite (pronounced Go-queue-ite) is a persistent message queue Go library built on SQLite and inspired by AWS SQS.
+goqite (pronounced Go-queue-ite) is a persistent message queue Go library built on SQLite and inspired by AWS SQS (but much simpler).
 
 ## Features
 
 - Messages are persisted in a SQLite table.
 - Messages are sent to and received from the queue, and are guaranteed to not be redelivered before a timeout occurs.
 - Support for multiple queues in one table.
+- Message timeouts can be extended, to support e.g. long-running tasks.
+- A simple HTTP handler is provided for your convenience.
 - No non-test dependencies. Bring your own SQLite driver.
 
 ## Benchmarks

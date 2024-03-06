@@ -1,3 +1,5 @@
+// Package goqite provides the named Queue.
+// It is backed by a SQLite table where the messages are stored.
 package goqite
 
 import (
