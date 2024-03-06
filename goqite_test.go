@@ -46,7 +46,47 @@ func TestQueue(t *testing.T) {
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
+}
 
+func TestQueue_New(t *testing.T) {
+	t.Run("panics if db is nil", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			is.Equal(t, "db cannot be nil", r)
+		}()
+
+		goqite.New(goqite.NewOpts{Name: "test"})
+	})
+
+	t.Run("panics if name is empty", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			is.Equal(t, "name cannot be empty", r)
+		}()
+
+		goqite.New(goqite.NewOpts{DB: &sql.DB{}})
+	})
+
+	t.Run("panics if max receive is negative", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			is.Equal(t, "max receive cannot be negative", r)
+		}()
+
+		goqite.New(goqite.NewOpts{DB: &sql.DB{}, Name: "test", MaxReceive: -1})
+	})
+
+	t.Run("panics if timeout is negative", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			is.Equal(t, "timeout cannot be negative", r)
+		}()
+
+		goqite.New(goqite.NewOpts{DB: &sql.DB{}, Name: "test", Timeout: -1})
+	})
+}
+
+func TestQueue_Receive(t *testing.T) {
 	t.Run("does not receive a delayed message immediately", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{}, ":memory:")
 
@@ -130,7 +170,9 @@ func TestQueue(t *testing.T) {
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
+}
 
+func TestQueue_Extend(t *testing.T) {
 	t.Run("does not receive a message that has had the timeout extended", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
 
@@ -153,6 +195,31 @@ func TestQueue(t *testing.T) {
 		m, err = q.Receive(context.Background())
 		is.NotError(t, err)
 		is.Nil(t, m)
+	})
+}
+
+func TestQueue_ReceiveAndWait(t *testing.T) {
+	t.Run("waits for a message until the context is cancelled", func(t *testing.T) {
+		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+		defer cancel()
+
+		m, err := q.ReceiveAndWait(ctx, time.Millisecond)
+		is.Error(t, context.DeadlineExceeded, err)
+		is.Nil(t, m)
+	})
+
+	t.Run("gets a message immediately if there is one", func(t *testing.T) {
+		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
+
+		err := q.Send(context.Background(), goqite.Message{Body: []byte("yo")})
+		is.NotError(t, err)
+
+		m, err := q.ReceiveAndWait(context.Background(), time.Millisecond)
+		is.NotError(t, err)
+		is.NotNil(t, m)
+		is.Equal(t, "yo", string(m.Body))
 	})
 }
 
