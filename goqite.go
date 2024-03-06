@@ -210,7 +210,8 @@ func (q *Queue) inTx(ctx context.Context, cb func(*sql.Tx) error) (err error) {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			err = rollback(tx, fmt.Errorf("panic: %v", rec))
+			err = rollback(tx, nil)
+			panic(rec)
 		}
 	}()
 

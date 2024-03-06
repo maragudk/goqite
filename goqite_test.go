@@ -86,6 +86,21 @@ func TestQueue_New(t *testing.T) {
 	})
 }
 
+func TestQueue_Send(t *testing.T) {
+	t.Run("panics if delay is negative", func(t *testing.T) {
+		q := newQ(t, goqite.NewOpts{}, ":memory:")
+
+		var err error
+		defer func() {
+			is.NotError(t, err)
+			r := recover()
+			is.Equal(t, "delay cannot be negative", r)
+		}()
+
+		err = q.Send(context.Background(), goqite.Message{Delay: -1})
+	})
+}
+
 func TestQueue_Receive(t *testing.T) {
 	t.Run("does not receive a delayed message immediately", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{}, ":memory:")
@@ -195,6 +210,30 @@ func TestQueue_Extend(t *testing.T) {
 		m, err = q.Receive(context.Background())
 		is.NotError(t, err)
 		is.Nil(t, m)
+	})
+
+	t.Run("panics if delay is negative", func(t *testing.T) {
+		q := newQ(t, goqite.NewOpts{}, ":memory:")
+
+		var err error
+		defer func() {
+			is.NotError(t, err)
+			r := recover()
+			is.Equal(t, "delay cannot be negative", r)
+		}()
+
+		m := &goqite.Message{
+			Body: []byte("yo"),
+		}
+
+		err = q.Send(context.Background(), *m)
+		is.NotError(t, err)
+
+		m, err = q.Receive(context.Background())
+		is.NotError(t, err)
+		is.NotNil(t, m)
+
+		err = q.Extend(context.Background(), m.ID, -1)
 	})
 }
 
