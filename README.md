@@ -12,6 +12,8 @@ goqite (pronounced Go-queue-ite) is a persistent message queue Go library built 
 
 - Messages are persisted in a SQLite table.
 - Messages are sent to and received from the queue, and are guaranteed to not be redelivered before a timeout occurs.
+- Support for multiple queues in one table.
+- No non-test dependencies. Bring your own SQLite driver.
 
 ## Benchmarks
 
