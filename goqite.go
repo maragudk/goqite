@@ -148,6 +148,28 @@ func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 	return &m, nil
 }
 
+// ReceiveAndWait for a Message from the queue or the context is cancelled.
+// If the context is cancelled, the error will be non-nil. See context.Context.Err.
+func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Message, error) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			m, err := q.Receive(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if m != nil {
+				return m, nil
+			}
+		}
+	}
+}
+
 // Extend a Message timeout by the given delay from now.
 func (q *Queue) Extend(ctx context.Context, id ID, delay time.Duration) error {
 	return q.inTx(ctx, func(tx *sql.Tx) error {
