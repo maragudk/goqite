@@ -8,6 +8,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 type queue interface {
 	Send(ctx context.Context, m goqite.Message) error
 	Receive(ctx context.Context) (*goqite.Message, error)
+	ReceiveAndWait(ctx context.Context, interval time.Duration) (*goqite.Message, error)
 	Extend(ctx context.Context, id goqite.ID, delay time.Duration) error
 	Delete(ctx context.Context, id goqite.ID) error
 }
@@ -33,7 +35,48 @@ func Handler(q queue) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			m, err := q.Receive(r.Context())
+			var m *goqite.Message
+			var err error
+
+			if r.URL.Query().Get("timeout") == "" {
+				m, err = q.Receive(r.Context())
+			} else {
+				var timeout time.Duration
+				timeout, err = time.ParseDuration(r.URL.Query().Get("timeout"))
+				if err != nil {
+					http.Error(w, "error parsing timeout parameter: "+err.Error(), http.StatusBadRequest)
+					return
+				}
+
+				if timeout <= 0 || timeout > 20*time.Second {
+					http.Error(w, "timeout must be between 0 (exclusive) and 20 (inclusive) seconds", http.StatusBadRequest)
+					return
+				}
+
+				interval := min(timeout, 100*time.Millisecond)
+				if r.URL.Query().Get("interval") != "" {
+					interval, err = time.ParseDuration(r.URL.Query().Get("interval"))
+					if err != nil {
+						http.Error(w, "error parsing interval parameter: "+err.Error(), http.StatusBadRequest)
+						return
+					}
+
+					if interval <= 0 || interval > timeout {
+						http.Error(w, "interval must be between 0 (exclusive) and timeout (inclusive)", http.StatusBadRequest)
+						return
+					}
+				}
+
+				ctx, cancel := context.WithTimeout(r.Context(), timeout)
+				defer cancel()
+
+				m, err = q.ReceiveAndWait(ctx, interval)
+				if err != nil && (errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+			}
+
 			if err != nil {
 				http.Error(w, "error receiving message: "+err.Error(), http.StatusInternalServerError)
 				return
