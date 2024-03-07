@@ -26,6 +26,8 @@ create table goqite (
 create trigger goqite_updated_timestamp after update on goqite begin
   update goqite set updated = strftime('%Y-%m-%dT%H:%M:%fZ') where id = old.id;
 end;
+
+create index goqite_queue_created_idx on goqite (queue, created);
 `
 
 func main() {

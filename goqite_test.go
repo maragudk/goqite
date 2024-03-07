@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"fmt"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -263,28 +265,84 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 }
 
 func BenchmarkQueue(b *testing.B) {
-	b.Run("send and receive messages", func(b *testing.B) {
+	b.Run("send, receive, delete", func(b *testing.B) {
 		q := newQ(b, goqite.NewOpts{}, "bench.db")
 
-		for i := 0; i < b.N; i++ {
-			m := &goqite.Message{
-				Body: []byte("yo"),
+		b.ResetTimer()
+
+		b.RunParallel(func(pb *testing.PB) {
+			for pb.Next() {
+				err := q.Send(context.Background(), goqite.Message{
+					Body: []byte("yo"),
+				})
+				is.NotError(b, err)
+
+				m, err := q.Receive(context.Background())
+				is.NotError(b, err)
+				is.NotNil(b, m)
+
+				err = q.Delete(context.Background(), m.ID)
+				is.NotError(b, err)
 			}
+		})
+	})
 
-			err := q.Send(context.Background(), *m)
-			is.NotError(b, err)
+	b.Run("receive and delete message on a big table with multiple queues", func(b *testing.B) {
+		indexes := []struct {
+			query string
+			skip  bool
+		}{
+			{"-- no index", false},
+			{"create index goqite_created_idx on goqite (created);", true},
+			{"create index goqite_created_idx on goqite (created);create index goqite_queue_idx on goqite (queue);", true},
+			{"create index goqite_queue_created_idx on goqite (queue, created);", true},
+			{"create index goqite_queue_timeout_idx on goqite (queue, timeout);", true},
+			{"create index goqite_queue_created_timeout_idx on goqite (queue, created, timeout);", true},
+			{"create index goqite_queue_timeout_created_idx on goqite (queue, timeout, created);", true},
+		}
 
-			m, err = q.Receive(context.Background())
-			is.NotError(b, err)
-			is.NotNil(b, m)
+		for _, index := range indexes {
+			b.Run(index.query, func(b *testing.B) {
+				if index.skip {
+					b.SkipNow()
+				}
 
-			err = q.Delete(context.Background(), m.ID)
-			is.NotError(b, err)
+				db := newDB(b, "bench.db")
+				_, err := db.Exec(index.query)
+				is.NotError(b, err)
+
+				var queues []*goqite.Queue
+				for i := 0; i < 10; i++ {
+					queues = append(queues, newQ(b, goqite.NewOpts{Name: fmt.Sprintf("q%v", i)}, "bench.db"))
+				}
+
+				for i := 0; i < 100_000; i++ {
+					q := queues[rand.Intn(len(queues))]
+					err := q.Send(context.Background(), goqite.Message{
+						Body: []byte("yo"),
+					})
+					is.NotError(b, err)
+				}
+
+				b.ResetTimer()
+
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						q := queues[rand.Intn(len(queues))]
+
+						m, err := q.Receive(context.Background())
+						is.NotError(b, err)
+
+						err = q.Delete(context.Background(), m.ID)
+						is.NotError(b, err)
+					}
+				})
+			})
 		}
 	})
 }
 
-func newQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
+func newDB(t testing.TB, path string) *sql.DB {
 	t.Helper()
 
 	// Check if file exists already
@@ -317,7 +375,13 @@ func newQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
 		}
 	}
 
-	opts.DB = db
+	return db
+}
+
+func newQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
+	t.Helper()
+
+	opts.DB = newDB(t, path)
 
 	if opts.Name == "" {
 		opts.Name = "test"
