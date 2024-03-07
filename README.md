@@ -101,22 +101,23 @@ func main() {
 
 Just for fun, some benchmarks. 🤓
 
-On a MacBook Air with M1 chip and SSD, sequentially sending, receiving, and deleting a message:
+On a MacBook Pro with M3 Ultra chip and SSD, sequentially sending, receiving, and deleting a message:
 
 ```shell
 $ make benchmark
-go test -cpu 1,2,4,8 -bench=.
+go test -cpu 1,2,4,8,16 -bench=.
 goos: darwin
 goarch: arm64
 pkg: github.com/maragudk/goqite
-BenchmarkQueue/send_and_receive_messages           	   15885	     76166 ns/op
-BenchmarkQueue/send_and_receive_messages-2         	   17215	     66464 ns/op
-BenchmarkQueue/send_and_receive_messages-4         	   18106	     63733 ns/op
-BenchmarkQueue/send_and_receive_messages-8         	   19184	     62530 ns/op
-PASS
-ok  	github.com/maragudk/goqite	7.895s
+BenchmarkQueue/send,_receive,_delete            	   21444	     54262 ns/op
+BenchmarkQueue/send,_receive,_delete-2          	   17278	     68615 ns/op
+BenchmarkQueue/send,_receive,_delete-4          	   16092	     73888 ns/op
+BenchmarkQueue/send,_receive,_delete-8          	   15346	     78255 ns/op
+BenchmarkQueue/send,_receive,_delete-16         	   15106	     79517 ns/op
 ```
 
-Note that the slowest result above is around 13,000 messages / second.
+Note that the slowest result above is around 12,500 messages / second with 16 parallel producers/consumers.
+The fastest result is around 18,500 messages / second with just one producer/consumer.
+(SQLite only allows one writer at a time, so the parallelism just creates write contention.)
 
 Made in 🇩🇰 by [maragu](https://www.maragu.dk/), maker of [online Go courses](https://www.golang.dk/).

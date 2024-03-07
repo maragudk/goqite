@@ -1,0 +1,47 @@
+$ make benchmark
+go test -cpu 1,2,4,8,16 -bench=.
+goos: darwin
+goarch: arm64
+pkg: github.com/maragudk/goqite
+BenchmarkQueue/send,_receive,_delete            	   21444	     54262 ns/op
+BenchmarkQueue/send,_receive,_delete-2          	   17278	     68615 ns/op
+BenchmarkQueue/send,_receive,_delete-4          	   16092	     73888 ns/op
+BenchmarkQueue/send,_receive,_delete-8          	   15346	     78255 ns/op
+BenchmarkQueue/send,_receive,_delete-16         	   15106	     79517 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/--_no_index            	     234	   5126047 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/--_no_index-2          	     188	   6624664 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/--_no_index-4          	     199	   6873656 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/--_no_index-8          	     158	   7157796 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/--_no_index-16         	     160	   7818052 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);            	   14715	     91173 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);-2          	    5708	    184975 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);-4          	    4167	    265216 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);-8          	    3512	    370125 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);-16         	    3330	    445044 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);create_index_goqite_queue_idx_on_goqite_(queue);            	     297	   4100755 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);create_index_goqite_queue_idx_on_goqite_(queue);-2          	     232	   4782162 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);create_index_goqite_queue_idx_on_goqite_(queue);-4          	     218	   5472771 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);create_index_goqite_queue_idx_on_goqite_(queue);-8          	     238	   5504702 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_created_idx_on_goqite_(created);create_index_goqite_queue_idx_on_goqite_(queue);-16         	     235	   5233509 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_idx_on_goqite_(queue,_created);                                               	   18282	     66551 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_idx_on_goqite_(queue,_created);-2                                             	   10000	    175566 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_idx_on_goqite_(queue,_created);-4                                             	    5067	    265713 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_idx_on_goqite_(queue,_created);-8                                             	    3362	    320438 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_idx_on_goqite_(queue,_created);-16                                            	    3135	    410640 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_idx_on_goqite_(queue,_timeout);                                               	     291	   3877755 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_idx_on_goqite_(queue,_timeout);-2                                             	     254	   4935259 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_idx_on_goqite_(queue,_timeout);-4                                             	     219	   4915146 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_idx_on_goqite_(queue,_timeout);-8                                             	     202	   6322910 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_idx_on_goqite_(queue,_timeout);-16                                            	     198	   5787143 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_timeout_idx_on_goqite_(queue,_created,_timeout);                              	   16359	     73496 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_timeout_idx_on_goqite_(queue,_created,_timeout);-2                            	    7576	    161283 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_timeout_idx_on_goqite_(queue,_created,_timeout);-4                            	    3894	    257490 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_timeout_idx_on_goqite_(queue,_created,_timeout);-8                            	    4000	    369591 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_created_timeout_idx_on_goqite_(queue,_created,_timeout);-16                           	    2559	    432982 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_created_idx_on_goqite_(queue,_timeout,_created);                              	     283	   4189103 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_created_idx_on_goqite_(queue,_timeout,_created);-2                            	     228	   4776358 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_created_idx_on_goqite_(queue,_timeout,_created);-4                            	     211	   6101248 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_created_idx_on_goqite_(queue,_timeout,_created);-8                            	     195	   6883243 ns/op
+BenchmarkQueue/receive_and_delete_message_on_a_big_table_with_multiple_queues/create_index_goqite_queue_timeout_created_idx_on_goqite_(queue,_timeout,_created);-16                           	     169	   6072513 ns/op
+PASS
+ok  	github.com/maragudk/goqite	581.129s

@@ -1,6 +1,6 @@
 .PHONY: benchmark
 benchmark:
-	go test -cpu 1,2,4,8 -bench=.
+	go test -cpu 1,2,4,8,16 -bench=.
 
 .PHONY: cover
 cover:
