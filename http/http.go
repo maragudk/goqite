@@ -6,21 +6,30 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/maragudk/goqite"
 )
 
-func GoqiteHandler(q *goqite.Queue) http.HandlerFunc {
-	type request struct {
-		Message goqite.Message
-	}
+type queue interface {
+	Send(ctx context.Context, m goqite.Message) error
+	Receive(ctx context.Context) (*goqite.Message, error)
+	Extend(ctx context.Context, id goqite.ID, delay time.Duration) error
+	Delete(ctx context.Context, id goqite.ID) error
+}
 
-	type response struct {
-		Message *goqite.Message
-	}
+type request struct {
+	Message goqite.Message
+}
 
+type response struct {
+	Message *goqite.Message
+}
+
+func Handler(q queue) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -41,9 +50,8 @@ func GoqiteHandler(q *goqite.Queue) http.HandlerFunc {
 			}
 
 		case http.MethodPost:
-			var req request
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "error decoding request: "+err.Error(), http.StatusBadRequest)
+			req, ok := fromJson(w, r)
+			if !ok {
 				return
 			}
 
@@ -58,9 +66,8 @@ func GoqiteHandler(q *goqite.Queue) http.HandlerFunc {
 			}
 
 		case http.MethodPut:
-			var req request
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "error decoding request: "+err.Error(), http.StatusBadRequest)
+			req, ok := fromJson(w, r)
+			if !ok {
 				return
 			}
 
@@ -80,9 +87,8 @@ func GoqiteHandler(q *goqite.Queue) http.HandlerFunc {
 			}
 
 		case http.MethodDelete:
-			var req request
-			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-				http.Error(w, "error decoding request: "+err.Error(), http.StatusBadRequest)
+			req, ok := fromJson(w, r)
+			if !ok {
 				return
 			}
 
@@ -97,4 +103,13 @@ func GoqiteHandler(q *goqite.Queue) http.HandlerFunc {
 			}
 		}
 	}
+}
+
+func fromJson(w http.ResponseWriter, r *http.Request) (request, bool) {
+	var req request
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "error decoding request: "+err.Error(), http.StatusBadRequest)
+		return req, false
+	}
+	return req, true
 }
