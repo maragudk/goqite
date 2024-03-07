@@ -37,6 +37,10 @@ func (q *queueMock) Receive(ctx context.Context) (*goqite.Message, error) {
 	return nil, q.err
 }
 
+func (q *queueMock) ReceiveAndWait(ctx context.Context, interval time.Duration) (*goqite.Message, error) {
+	return nil, q.err
+}
+
 func (q *queueMock) Extend(ctx context.Context, id goqite.ID, delay time.Duration) error {
 	return q.err
 }
@@ -77,6 +81,30 @@ func TestHandler_Get(t *testing.T) {
 
 		code, _, _ := newRequest(t, h, http.MethodGet, nil)
 		is.Equal(t, http.StatusInternalServerError, code)
+	})
+
+	t.Run("can wait for a message", func(t *testing.T) {
+		h := newH(t, goqite.NewOpts{})
+
+		r := httptest.NewRequest(http.MethodGet, "/?wait=300ms", nil)
+		w := httptest.NewRecorder()
+		h(w, r)
+
+		is.Equal(t, http.StatusNoContent, w.Code)
+	})
+
+	t.Run("errors if wait is invalid", func(t *testing.T) {
+		h := newH(t, goqite.NewOpts{})
+
+		for _, wait := range []string{"notaduration", "0s", "20s1ns"} {
+			t.Run(wait, func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodGet, "/?wait="+wait, nil)
+				w := httptest.NewRecorder()
+				h(w, r)
+
+				is.Equal(t, http.StatusBadRequest, w.Code)
+			})
+		}
 	})
 }
 
