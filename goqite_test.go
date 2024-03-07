@@ -107,7 +107,7 @@ func TestQueue_Receive(t *testing.T) {
 
 		m := &goqite.Message{
 			Body:  []byte("yo"),
-			Delay: time.Millisecond,
+			Delay: 2 * time.Millisecond,
 		}
 
 		err := q.Send(context.Background(), *m)
@@ -117,7 +117,7 @@ func TestQueue_Receive(t *testing.T) {
 		is.NotError(t, err)
 		is.Nil(t, m)
 
-		time.Sleep(time.Millisecond)
+		time.Sleep(2 * time.Millisecond)
 
 		m, err = q.Receive(context.Background())
 		is.NotError(t, err)
