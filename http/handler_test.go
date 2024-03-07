@@ -49,10 +49,10 @@ func (q *queueMock) Delete(ctx context.Context, id goqite.ID) error {
 	return q.err
 }
 
-func TestHandler(t *testing.T) {
+func TestNewHandler(t *testing.T) {
 	t.Run("errors if cannot decode request", func(t *testing.T) {
 		q := &queueMock{}
-		h := qhttp.Handler(q)
+		h := qhttp.NewHandler(q)
 
 		for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
 			t.Run(method, func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestHandler(t *testing.T) {
 	})
 }
 
-func TestHandler_Get(t *testing.T) {
+func TestNewHandler_Get(t *testing.T) {
 	t.Run("receives nothing if there is no message", func(t *testing.T) {
 		h := newH(t, goqite.NewOpts{})
 
@@ -77,7 +77,7 @@ func TestHandler_Get(t *testing.T) {
 
 	t.Run("errors if cannot receive from queue", func(t *testing.T) {
 		q := &queueMock{err: errors.New("oh no")}
-		h := qhttp.Handler(q)
+		h := qhttp.NewHandler(q)
 
 		code, _, _ := newRequest(t, h, http.MethodGet, nil)
 		is.Equal(t, http.StatusInternalServerError, code)
@@ -122,7 +122,7 @@ func TestHandler_Get(t *testing.T) {
 	})
 }
 
-func TestHandler_Post(t *testing.T) {
+func TestNewHandler_Post(t *testing.T) {
 	t.Run("posts and receives a message", func(t *testing.T) {
 		h := newH(t, goqite.NewOpts{})
 
@@ -149,7 +149,7 @@ func TestHandler_Post(t *testing.T) {
 
 	t.Run("errors if cannot send to queue", func(t *testing.T) {
 		q := &queueMock{err: errors.New("oh no")}
-		h := qhttp.Handler(q)
+		h := qhttp.NewHandler(q)
 
 		code, _, _ := newRequest(t, h, http.MethodPost, &goqite.Message{
 			Body: []byte("yo"),
@@ -158,7 +158,7 @@ func TestHandler_Post(t *testing.T) {
 	})
 }
 
-func TestHandler_Put(t *testing.T) {
+func TestNewHandler_Put(t *testing.T) {
 	t.Run("can extend a message timeout", func(t *testing.T) {
 		h := newH(t, goqite.NewOpts{Timeout: time.Millisecond})
 
@@ -206,7 +206,7 @@ func TestHandler_Put(t *testing.T) {
 
 	t.Run("errors if cannot extend in queue", func(t *testing.T) {
 		q := &queueMock{err: errors.New("oh no")}
-		h := qhttp.Handler(q)
+		h := qhttp.NewHandler(q)
 
 		code, _, _ := newRequest(t, h, http.MethodPut, &goqite.Message{
 			ID:    "1",
@@ -216,7 +216,7 @@ func TestHandler_Put(t *testing.T) {
 	})
 }
 
-func TestHandler_Delete(t *testing.T) {
+func TestNewHandler_Delete(t *testing.T) {
 	t.Run("deletes a message", func(t *testing.T) {
 		h := newH(t, goqite.NewOpts{})
 
@@ -246,7 +246,7 @@ func TestHandler_Delete(t *testing.T) {
 
 	t.Run("errors if cannot delete from queue", func(t *testing.T) {
 		q := &queueMock{err: errors.New("oh no")}
-		h := qhttp.Handler(q)
+		h := qhttp.NewHandler(q)
 
 		code, _, _ := newRequest(t, h, http.MethodDelete, &goqite.Message{
 			ID: "1",
@@ -281,7 +281,7 @@ func newH(t testing.TB, opts goqite.NewOpts) http.HandlerFunc {
 	t.Helper()
 
 	q := newQ(t, opts)
-	return qhttp.Handler(q)
+	return qhttp.NewHandler(q)
 }
 
 func newQ(t testing.TB, opts goqite.NewOpts) *goqite.Queue {

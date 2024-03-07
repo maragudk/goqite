@@ -31,7 +31,7 @@ type response struct {
 	Message *goqite.Message
 }
 
-func Handler(q queue) http.HandlerFunc {
+func NewHandler(q queue) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
