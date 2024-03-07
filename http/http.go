@@ -70,7 +70,7 @@ func Handler(q queue) http.HandlerFunc {
 				ctx, cancel := context.WithTimeout(r.Context(), timeout)
 				defer cancel()
 
-				m, err = q.ReceiveAndWait(ctx, 100*time.Millisecond)
+				m, err = q.ReceiveAndWait(ctx, interval)
 				if err != nil && (errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)) {
 					w.WriteHeader(http.StatusNoContent)
 					return
