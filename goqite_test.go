@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"math/rand/v2"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -317,7 +317,7 @@ func BenchmarkQueue(b *testing.B) {
 				}
 
 				for i := 0; i < 100_000; i++ {
-					q := queues[rand.IntN(len(queues))]
+					q := queues[rand.Intn(len(queues))]
 					err := q.Send(context.Background(), goqite.Message{
 						Body: []byte("yo"),
 					})
@@ -328,7 +328,7 @@ func BenchmarkQueue(b *testing.B) {
 
 				b.RunParallel(func(pb *testing.PB) {
 					for pb.Next() {
-						q := queues[rand.IntN(len(queues))]
+						q := queues[rand.Intn(len(queues))]
 
 						m, err := q.Receive(context.Background())
 						is.NotError(b, err)
