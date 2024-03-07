@@ -106,6 +106,20 @@ func TestHandler_Get(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("errors if interval is invalid", func(t *testing.T) {
+		h := newH(t, goqite.NewOpts{})
+
+		for _, interval := range []string{"notaduration", "0s", "100ms1ns"} {
+			t.Run(interval, func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodGet, "/?timeout=100ms&interval="+interval, nil)
+				w := httptest.NewRecorder()
+				h(w, r)
+
+				is.Equal(t, http.StatusBadRequest, w.Code)
+			})
+		}
+	})
 }
 
 func TestHandler_Post(t *testing.T) {

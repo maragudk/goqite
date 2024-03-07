@@ -52,7 +52,21 @@ func Handler(q queue) http.HandlerFunc {
 					http.Error(w, "timeout must be between 0 (exclusive) and 20 (inclusive) seconds", http.StatusBadRequest)
 					return
 				}
-				
+
+				interval := min(timeout, 100*time.Millisecond)
+				if r.URL.Query().Get("interval") != "" {
+					interval, err = time.ParseDuration(r.URL.Query().Get("interval"))
+					if err != nil {
+						http.Error(w, "error parsing interval parameter: "+err.Error(), http.StatusBadRequest)
+						return
+					}
+
+					if interval <= 0 || interval > timeout {
+						http.Error(w, "interval must be between 0 (exclusive) and timeout (inclusive)", http.StatusBadRequest)
+						return
+					}
+				}
+
 				ctx, cancel := context.WithTimeout(r.Context(), timeout)
 				defer cancel()
 
