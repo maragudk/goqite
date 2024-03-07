@@ -86,19 +86,19 @@ func TestHandler_Get(t *testing.T) {
 	t.Run("can wait for a message", func(t *testing.T) {
 		h := newH(t, goqite.NewOpts{})
 
-		r := httptest.NewRequest(http.MethodGet, "/?wait=300ms", nil)
+		r := httptest.NewRequest(http.MethodGet, "/?timeout=300ms", nil)
 		w := httptest.NewRecorder()
 		h(w, r)
 
 		is.Equal(t, http.StatusNoContent, w.Code)
 	})
 
-	t.Run("errors if wait is invalid", func(t *testing.T) {
+	t.Run("errors if timeout is invalid", func(t *testing.T) {
 		h := newH(t, goqite.NewOpts{})
 
-		for _, wait := range []string{"notaduration", "0s", "20s1ns"} {
-			t.Run(wait, func(t *testing.T) {
-				r := httptest.NewRequest(http.MethodGet, "/?wait="+wait, nil)
+		for _, timeout := range []string{"notaduration", "0s", "20s1ns"} {
+			t.Run(timeout, func(t *testing.T) {
+				r := httptest.NewRequest(http.MethodGet, "/?timeout="+timeout, nil)
 				w := httptest.NewRecorder()
 				h(w, r)
 

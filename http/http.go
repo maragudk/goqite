@@ -38,20 +38,22 @@ func Handler(q queue) http.HandlerFunc {
 			var m *goqite.Message
 			var err error
 
-			if r.URL.Query().Get("wait") == "" {
+			if r.URL.Query().Get("timeout") == "" {
 				m, err = q.Receive(r.Context())
 			} else {
-				var wait time.Duration
-				wait, err = time.ParseDuration(r.URL.Query().Get("wait"))
+				var timeout time.Duration
+				timeout, err = time.ParseDuration(r.URL.Query().Get("timeout"))
 				if err != nil {
-					http.Error(w, "error parsing wait parameter: "+err.Error(), http.StatusBadRequest)
+					http.Error(w, "error parsing timeout parameter: "+err.Error(), http.StatusBadRequest)
 					return
 				}
-				if wait <= 0 || wait > 20*time.Second {
-					http.Error(w, "wait must be between 0 (exclusive) and 20 (inclusive) seconds", http.StatusBadRequest)
+
+				if timeout <= 0 || timeout > 20*time.Second {
+					http.Error(w, "timeout must be between 0 (exclusive) and 20 (inclusive) seconds", http.StatusBadRequest)
 					return
 				}
-				ctx, cancel := context.WithTimeout(r.Context(), wait)
+				
+				ctx, cancel := context.WithTimeout(r.Context(), timeout)
 				defer cancel()
 
 				m, err = q.ReceiveAndWait(ctx, 100*time.Millisecond)
