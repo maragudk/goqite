@@ -5,10 +5,14 @@ package goqite
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"errors"
 	"fmt"
 	"time"
 )
+
+//go:embed schema.sql
+var schema string
 
 // rfc3339Milli is like time.RFC3339Nano, but with millisecond precision, and fractional seconds do not have trailing
 // zeros removed.
@@ -238,3 +242,9 @@ func rollback(tx *sql.Tx, err error) error {
 type discardLogger struct{}
 
 func (l *discardLogger) Println(v ...any) {}
+
+// Initialize the queue in the database.
+func Initialize(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, schema)
+	return err
+}
