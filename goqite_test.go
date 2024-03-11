@@ -264,6 +264,24 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 	})
 }
 
+func TestInitialize(t *testing.T) {
+	t.Run("creates the database table", func(t *testing.T) {
+		db, err := sql.Open("sqlite3", ":memory:?_journal=WAL&_timeout=5000&_fk=true")
+		if err != nil {
+			t.Fatal(err)
+		}
+		db.SetMaxOpenConns(1)
+		db.SetMaxIdleConns(1)
+
+		_, err = db.Exec(`select * from goqite`)
+		is.Equal(t, "no such table: goqite", err.Error())
+		err = goqite.CreateTable(context.Background(), db)
+		is.NotError(t, err)
+		_, err = db.Exec(`select * from goqite`)
+		is.NotError(t, err)
+	})
+}
+
 func BenchmarkQueue(b *testing.B) {
 	b.Run("send, receive, delete", func(b *testing.B) {
 		q := newQ(b, goqite.NewOpts{}, "bench.db")
