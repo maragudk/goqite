@@ -275,7 +275,7 @@ func TestInitialize(t *testing.T) {
 
 		_, err = db.Exec(`select * from goqite`)
 		is.Equal(t, "no such table: goqite", err.Error())
-		err = goqite.CreateTable(context.Background(), db)
+		err = goqite.Initialize(context.Background(), db)
 		is.NotError(t, err)
 		_, err = db.Exec(`select * from goqite`)
 		is.NotError(t, err)
