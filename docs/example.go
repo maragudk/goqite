@@ -12,32 +12,17 @@ import (
 	"github.com/maragudk/goqite"
 )
 
-const schema = `
-create table goqite (
-  id text primary key default ('m_' || lower(hex(randomblob(16)))),
-  created text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
-  updated text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
-  queue text not null,
-  body blob not null,
-  timeout text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
-  received integer not null default 0
-) strict;
-
-create trigger goqite_updated_timestamp after update on goqite begin
-  update goqite set updated = strftime('%Y-%m-%dT%H:%M:%fZ') where id = old.id;
-end;
-
-create index goqite_queue_created_idx on goqite (queue, created);
-`
-
 func main() {
 	// Bring your own database connection, since you probably already have it,
 	// as well as some sort of schema migration system.
+	// The schema is in the schema.sql file.
+	// Alternatively, use the goqite.Setup function to create the schema.
 	db, err := sql.Open("sqlite3", ":memory:?_journal=WAL&_timeout=5000&_fk=true")
 	if err != nil {
 		log.Fatalln(err)
 	}
-	if _, err := db.Exec(schema); err != nil {
+
+	if err := goqite.Setup(context.Background(), db); err != nil {
 		log.Fatalln(err)
 	}
 

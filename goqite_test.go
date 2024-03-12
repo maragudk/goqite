@@ -264,7 +264,7 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 	})
 }
 
-func TestInitialize(t *testing.T) {
+func TestSetup(t *testing.T) {
 	t.Run("creates the database table", func(t *testing.T) {
 		db, err := sql.Open("sqlite3", ":memory:?_journal=WAL&_timeout=5000&_fk=true")
 		if err != nil {
@@ -275,7 +275,7 @@ func TestInitialize(t *testing.T) {
 
 		_, err = db.Exec(`select * from goqite`)
 		is.Equal(t, "no such table: goqite", err.Error())
-		err = goqite.Initialize(context.Background(), db)
+		err = goqite.Setup(context.Background(), db)
 		is.NotError(t, err)
 		_, err = db.Exec(`select * from goqite`)
 		is.NotError(t, err)
