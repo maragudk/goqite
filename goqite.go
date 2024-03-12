@@ -243,8 +243,8 @@ type discardLogger struct{}
 
 func (l *discardLogger) Println(v ...any) {}
 
-// Initialize the queue in the database.
-func Initialize(ctx context.Context, db *sql.DB) error {
+// Setup the queue in the database.
+func Setup(ctx context.Context, db *sql.DB) error {
 	_, err := db.ExecContext(ctx, schema)
 	return err
 }
