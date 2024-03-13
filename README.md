@@ -8,6 +8,8 @@
 
 goqite (pronounced Go-queue-ite) is a persistent message queue Go library built on SQLite and inspired by AWS SQS (but much simpler).
 
+Don't like queues? [Get the Skip function to skip the queue for your messages!](https://maragu.gumroad.com/l/goqite)
+
 ## Features
 
 - Messages are persisted in a SQLite table.
