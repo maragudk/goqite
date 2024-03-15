@@ -91,7 +91,7 @@ type Message struct {
 
 // Send a Message to the queue with an optional delay.
 func (q *Queue) Send(ctx context.Context, m Message) error {
-	return q.inTx(ctx, func(tx *sql.Tx) error {
+	return q.inTx(func(tx *sql.Tx) error {
 		return q.SendTx(ctx, tx, m)
 	})
 }
@@ -114,7 +114,7 @@ func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) error {
 // Receive a Message from the queue, or nil if there is none.
 func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	var m *Message
-	err := q.inTx(ctx, func(tx *sql.Tx) error {
+	err := q.inTx(func(tx *sql.Tx) error {
 		var err error
 		m, err = q.ReceiveTx(ctx, tx)
 		return err
@@ -178,7 +178,7 @@ func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Me
 
 // Extend a Message timeout by the given delay from now.
 func (q *Queue) Extend(ctx context.Context, id ID, delay time.Duration) error {
-	return q.inTx(ctx, func(tx *sql.Tx) error {
+	return q.inTx(func(tx *sql.Tx) error {
 		return q.ExtendTx(ctx, tx, id, delay)
 	})
 }
@@ -197,7 +197,7 @@ func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Dura
 
 // Delete a Message from the queue by id.
 func (q *Queue) Delete(ctx context.Context, id ID) error {
-	return q.inTx(ctx, func(tx *sql.Tx) error {
+	return q.inTx(func(tx *sql.Tx) error {
 		return q.DeleteTx(ctx, tx, id)
 	})
 }
@@ -208,7 +208,7 @@ func (q *Queue) DeleteTx(ctx context.Context, tx *sql.Tx, id ID) error {
 	return err
 }
 
-func (q *Queue) inTx(ctx context.Context, cb func(*sql.Tx) error) (err error) {
+func (q *Queue) inTx(cb func(*sql.Tx) error) (err error) {
 	tx, txErr := q.db.Begin()
 	if txErr != nil {
 		return fmt.Errorf("cannot start tx: %w", txErr)
