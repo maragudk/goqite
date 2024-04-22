@@ -120,7 +120,6 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 	job, ok := r.jobs[jm.Name]
 	if !ok {
 		panic(fmt.Sprintf(`job "%v" not registered`, jm.Name))
-		return
 	}
 
 	r.jobCountLock.Lock()
