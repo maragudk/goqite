@@ -8,6 +8,8 @@
 
 goqite (pronounced Go-queue-ite) is a persistent message queue Go library built on SQLite and inspired by AWS SQS (but much simpler).
 
+Made in 🇩🇰 by [maragu](https://www.maragu.dk/), maker of [online Go courses](https://www.golang.dk/).
+
 ## Features
 
 - Messages are persisted in a SQLite table.
@@ -110,5 +112,3 @@ BenchmarkQueue/send,_receive,_delete-16         	   15106	     79517 ns/op
 Note that the slowest result above is around 12,500 messages / second with 16 parallel producers/consumers.
 The fastest result is around 18,500 messages / second with just one producer/consumer.
 (SQLite only allows one writer at a time, so the parallelism just creates write contention.)
-
-Made in 🇩🇰 by [maragu](https://www.maragu.dk/), maker of [online Go courses](https://www.golang.dk/).
