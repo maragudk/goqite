@@ -54,7 +54,9 @@ func NewDB(t testing.TB, path string) *sql.DB {
 func NewQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
 	t.Helper()
 
-	opts.DB = NewDB(t, path)
+	if opts.DB == nil {
+		opts.DB = NewDB(t, path)
+	}
 
 	if opts.Name == "" {
 		opts.Name = "test"

@@ -10,6 +10,7 @@ package jobs
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -197,12 +198,22 @@ func (r *Runner) Register(name string, job Func) {
 	r.jobs[name] = job
 }
 
+// Create a message for the named job in the given queue.
 func Create(ctx context.Context, q *goqite.Queue, name string, m []byte) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m}); err != nil {
 		return err
 	}
 	return q.Send(ctx, goqite.Message{Body: buf.Bytes()})
+}
+
+// CreateTx is like Create, but within an existing transaction.
+func CreateTx(ctx context.Context, tx *sql.Tx, q *goqite.Queue, name string, m []byte) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m}); err != nil {
+		return err
+	}
+	return q.SendTx(ctx, tx, goqite.Message{Body: buf.Bytes()})
 }
 
 // logger matches the info level method from the slog.Logger.
