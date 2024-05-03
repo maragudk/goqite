@@ -12,6 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/maragudk/goqite"
+	internalsql "github.com/maragudk/goqite/internal/sql"
 	internaltesting "github.com/maragudk/goqite/internal/testing"
 	"github.com/maragudk/goqite/jobs"
 )
@@ -118,6 +119,31 @@ func TestRunner_Start(t *testing.T) {
 		is.NotError(t, err)
 
 		r.Start(ctx)
+	})
+}
+
+func TestCreateTx(t *testing.T) {
+	t.Run("can create a job inside a transaction", func(t *testing.T) {
+		db := internaltesting.NewDB(t, ":memory:")
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db}, ":memory:")
+		r := jobs.NewRunner(jobs.NewRunnerOpts{Log: internaltesting.NewLogger(t), Queue: q})
+
+		var ran bool
+		ctx, cancel := context.WithCancel(context.Background())
+		r.Register("test", func(ctx context.Context, m []byte) error {
+			ran = true
+			is.Equal(t, "yo", string(m))
+			cancel()
+			return nil
+		})
+
+		err := internalsql.InTx(db, func(tx *sql.Tx) error {
+			return jobs.CreateTx(ctx, tx, q, "test", []byte("yo"))
+		})
+		is.NotError(t, err)
+
+		r.Start(ctx)
+		is.True(t, ran)
 	})
 }
 
