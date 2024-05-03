@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	_ "embed"
 	"errors"
-	"fmt"
 	"time"
 
 	internalsql "github.com/maragudk/goqite/internal/sql"
@@ -196,37 +195,6 @@ func (q *Queue) Delete(ctx context.Context, id ID) error {
 // DeleteTx is like Delete, but within an existing transaction.
 func (q *Queue) DeleteTx(ctx context.Context, tx *sql.Tx, id ID) error {
 	_, err := tx.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
-	return err
-}
-
-func (q *Queue) inTx(cb func(*sql.Tx) error) (err error) {
-	tx, txErr := q.db.Begin()
-	if txErr != nil {
-		return fmt.Errorf("cannot start tx: %w", txErr)
-	}
-
-	defer func() {
-		if rec := recover(); rec != nil {
-			err = rollback(tx, nil)
-			panic(rec)
-		}
-	}()
-
-	if err := cb(tx); err != nil {
-		return rollback(tx, err)
-	}
-
-	if txErr := tx.Commit(); txErr != nil {
-		return fmt.Errorf("cannot commit tx: %w", txErr)
-	}
-
-	return nil
-}
-
-func rollback(tx *sql.Tx, err error) error {
-	if txErr := tx.Rollback(); txErr != nil {
-		return fmt.Errorf("cannot roll back tx after error (tx error: %v), original error: %w", txErr, err)
-	}
 	return err
 }
 
