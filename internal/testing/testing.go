@@ -1,4 +1,4 @@
-package internal
+package testing
 
 import (
 	"database/sql"

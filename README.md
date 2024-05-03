@@ -16,6 +16,7 @@ Made in 🇩🇰 by [maragu](https://www.maragu.dk/), maker of [online Go course
 - Messages are sent to and received from the queue, and are guaranteed to not be redelivered before a timeout occurs.
 - Support for multiple queues in one table.
 - Message timeouts can be extended, to support e.g. long-running tasks.
+- A job runner abstraction is provided on top of the queue, for your background tasks.
 - A simple HTTP handler is provided for your convenience.
 - No non-test dependencies. Bring your own SQLite driver.
 
@@ -45,6 +46,8 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
 	if err := goqite.Setup(context.Background(), db); err != nil {
 		log.Fatalln(err)

@@ -21,6 +21,8 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 
 	if err := goqite.Setup(context.Background(), db); err != nil {
 		log.Fatalln(err)

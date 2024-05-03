@@ -1,3 +1,10 @@
+// Package jobs provides a [Runner] which can run registered job [Func]s by name, when a message for it is received
+// on the underlying queue.
+//
+// It provides:
+// - Limit on how many jobs can be run simultaneously
+// - Automatic message timeout extension while the job is running
+// - Graceful shutdown
 package jobs
 
 import (
@@ -14,19 +21,12 @@ import (
 	"github.com/maragudk/goqite"
 )
 
-type logger interface {
-	Info(msg string, args ...any)
-}
-
 type NewRunnerOpts struct {
-	Limit int
-	Log   logger
-	Queue *goqite.Queue
+	Limit        int
+	Log          logger
+	PollInterval time.Duration
+	Queue        *goqite.Queue
 }
-
-type discardLogger struct{}
-
-func (d *discardLogger) Info(msg string, args ...any) {}
 
 func NewRunner(opts NewRunnerOpts) *Runner {
 	if opts.Log == nil {
@@ -37,10 +37,15 @@ func NewRunner(opts NewRunnerOpts) *Runner {
 		opts.Limit = runtime.GOMAXPROCS(0)
 	}
 
+	if opts.PollInterval == 0 {
+		opts.PollInterval = 100 * time.Millisecond
+	}
+
 	return &Runner{
 		jobCountLimit: opts.Limit,
 		jobs:          make(map[string]Func),
 		log:           opts.Log,
+		pollInterval:  opts.PollInterval,
 		queue:         opts.Queue,
 	}
 }
@@ -51,6 +56,7 @@ type Runner struct {
 	jobCountLock  sync.RWMutex
 	jobs          map[string]Func
 	log           logger
+	pollInterval  time.Duration
 	queue         *goqite.Queue
 }
 
@@ -60,8 +66,8 @@ type message struct {
 }
 
 // Start the Runner, blocking until the given context is cancelled.
+// When the context is cancelled, waits for the jobs to finish.
 func (r *Runner) Start(ctx context.Context) {
-
 	var names []string
 	for k := range r.jobs {
 		names = append(names, k)
@@ -90,13 +96,13 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 	if r.jobCount == r.jobCountLimit {
 		r.jobCountLock.RUnlock()
 		// This is to avoid a busy loop
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(r.pollInterval)
 		return
 	} else {
 		r.jobCountLock.RUnlock()
 	}
 
-	m, err := r.queue.ReceiveAndWait(ctx, 100*time.Millisecond)
+	m, err := r.queue.ReceiveAndWait(ctx, r.pollInterval)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return
@@ -113,7 +119,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 
 	var jm message
 	if err := gob.NewDecoder(bytes.NewReader(m.Body)).Decode(&jm); err != nil {
-		r.log.Info("Error decoding job body", "error", err)
+		r.log.Info("Error decoding job message body", "error", err)
 		return
 	}
 
@@ -145,6 +151,26 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		jobCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
+		// Extend the job message while the job is running
+		done := make(chan struct{}, 1)
+		defer func() {
+			done <- struct{}{}
+		}()
+
+		go func() {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					if err := r.queue.Extend(jobCtx, m.ID, 5*time.Second); err != nil {
+						r.log.Info("Error extending message timeout", "error", err)
+					}
+					time.Sleep(3 * time.Second)
+				}
+			}
+		}()
+
 		before := time.Now()
 		if err := job(jobCtx, jm.Message); err != nil {
 			r.log.Info("Error running job", "name", jm.Name, "error", err)
@@ -161,6 +187,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 	}()
 }
 
+// Func is a job to be done. It gets the message m from the queue.
 type Func func(ctx context.Context, m []byte) error
 
 func (r *Runner) Register(name string, job Func) {
@@ -177,3 +204,12 @@ func Create(ctx context.Context, q *goqite.Queue, name string, m []byte) error {
 	}
 	return q.Send(ctx, goqite.Message{Body: buf.Bytes()})
 }
+
+// logger matches the info level method from the slog.Logger.
+type logger interface {
+	Info(msg string, args ...any)
+}
+
+type discardLogger struct{}
+
+func (d *discardLogger) Info(msg string, args ...any) {}

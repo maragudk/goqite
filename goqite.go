@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	internalsql "github.com/maragudk/goqite/internal/sql"
 )
 
 //go:embed schema.sql
@@ -18,13 +20,8 @@ var schema string
 // zeros removed.
 const rfc3339Milli = "2006-01-02T15:04:05.000Z07:00"
 
-type logger interface {
-	Println(v ...any)
-}
-
 type NewOpts struct {
 	DB         *sql.DB
-	Log        logger
 	MaxReceive int // Max receive count for messages before they cannot be received anymore.
 	Name       string
 	Timeout    time.Duration // Default timeout for messages before they can be re-received.
@@ -42,10 +39,6 @@ func New(opts NewOpts) *Queue {
 
 	if opts.Name == "" {
 		panic("name cannot be empty")
-	}
-
-	if opts.Log == nil {
-		opts.Log = &discardLogger{}
 	}
 
 	if opts.MaxReceive < 0 {
@@ -67,7 +60,6 @@ func New(opts NewOpts) *Queue {
 	return &Queue{
 		db:         opts.DB,
 		name:       opts.Name,
-		log:        opts.Log,
 		maxReceive: opts.MaxReceive,
 		timeout:    opts.Timeout,
 	}
@@ -75,7 +67,6 @@ func New(opts NewOpts) *Queue {
 
 type Queue struct {
 	db         *sql.DB
-	log        logger
 	maxReceive int
 	name       string
 	timeout    time.Duration
@@ -91,7 +82,7 @@ type Message struct {
 
 // Send a Message to the queue with an optional delay.
 func (q *Queue) Send(ctx context.Context, m Message) error {
-	return q.inTx(func(tx *sql.Tx) error {
+	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
 		return q.SendTx(ctx, tx, m)
 	})
 }
@@ -114,7 +105,7 @@ func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) error {
 // Receive a Message from the queue, or nil if there is none.
 func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	var m *Message
-	err := q.inTx(func(tx *sql.Tx) error {
+	err := internalsql.InTx(q.db, func(tx *sql.Tx) error {
 		var err error
 		m, err = q.ReceiveTx(ctx, tx)
 		return err
@@ -178,7 +169,7 @@ func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Me
 
 // Extend a Message timeout by the given delay from now.
 func (q *Queue) Extend(ctx context.Context, id ID, delay time.Duration) error {
-	return q.inTx(func(tx *sql.Tx) error {
+	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
 		return q.ExtendTx(ctx, tx, id, delay)
 	})
 }
@@ -197,7 +188,7 @@ func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Dura
 
 // Delete a Message from the queue by id.
 func (q *Queue) Delete(ctx context.Context, id ID) error {
-	return q.inTx(func(tx *sql.Tx) error {
+	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
 		return q.DeleteTx(ctx, tx, id)
 	})
 }
@@ -238,10 +229,6 @@ func rollback(tx *sql.Tx, err error) error {
 	}
 	return err
 }
-
-type discardLogger struct{}
-
-func (l *discardLogger) Println(v ...any) {}
 
 // Setup the queue in the database.
 func Setup(ctx context.Context, db *sql.DB) error {
