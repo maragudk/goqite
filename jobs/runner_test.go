@@ -221,6 +221,6 @@ func newRunner(t *testing.T) (*goqite.Queue, *jobs.Runner) {
 	t.Helper()
 
 	q := internaltesting.NewQ(t, goqite.NewOpts{Timeout: 100 * time.Millisecond}, ":memory:")
-	r := jobs.NewRunner(jobs.NewRunnerOpts{Limit: 10, Log: internaltesting.NewLogger(t), Queue: q, ExtendTimeout: 100 * time.Millisecond})
+	r := jobs.NewRunner(jobs.NewRunnerOpts{Limit: 10, Log: internaltesting.NewLogger(t), Queue: q, Extend: 100 * time.Millisecond})
 	return q, r
 }
