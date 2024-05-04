@@ -23,15 +23,15 @@ import (
 )
 
 // NewRunnerOpts are options for [NewRunner].
+//   - [NewRunner.Extend] is by how much a job message timeout is extended each time while the job is running.
 //   - [NewRunnerOpts.Limit] is for how many jobs can be run simultaneously.
 //   - [NewRunner.PollInterval] is how often the runner polls the queue for new messages.
-//   - [NewRunner.ExtendTimeout] is by how much a job message timeout is extended each time while the job is running.
 type NewRunnerOpts struct {
-	Limit         int
-	Log           logger
-	PollInterval  time.Duration
-	Queue         *goqite.Queue
-	ExtendTimeout time.Duration
+	Extend       time.Duration
+	Limit        int
+	Log          logger
+	PollInterval time.Duration
+	Queue        *goqite.Queue
 }
 
 func NewRunner(opts NewRunnerOpts) *Runner {
@@ -47,21 +47,22 @@ func NewRunner(opts NewRunnerOpts) *Runner {
 		opts.PollInterval = 100 * time.Millisecond
 	}
 
-	if opts.ExtendTimeout == 0 {
-		opts.ExtendTimeout = 5 * time.Second
+	if opts.Extend == 0 {
+		opts.Extend = 5 * time.Second
 	}
 
 	return &Runner{
+		extend:        opts.Extend,
 		jobCountLimit: opts.Limit,
 		jobs:          make(map[string]Func),
 		log:           opts.Log,
 		pollInterval:  opts.PollInterval,
 		queue:         opts.Queue,
-		timeout:       opts.ExtendTimeout,
 	}
 }
 
 type Runner struct {
+	extend        time.Duration
 	jobCount      int
 	jobCountLimit int
 	jobCountLock  sync.RWMutex
@@ -69,7 +70,6 @@ type Runner struct {
 	log           logger
 	pollInterval  time.Duration
 	queue         *goqite.Queue
-	timeout       time.Duration
 }
 
 type message struct {
@@ -166,17 +166,17 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		// Extend the job message while the job is running
 		go func() {
 			// Start by sleeping so we don't extend immediately
-			time.Sleep(r.timeout - r.timeout/5)
+			time.Sleep(r.extend - r.extend/5)
 			for {
 				select {
 				case <-jobCtx.Done():
 					return
 				default:
-					r.log.Info("Extending message timeout")
-					if err := r.queue.Extend(jobCtx, m.ID, r.timeout); err != nil {
+					r.log.Info("Extending message timeout", "name", jm.Name)
+					if err := r.queue.Extend(jobCtx, m.ID, r.extend); err != nil {
 						r.log.Info("Error extending message timeout", "error", err)
 					}
-					time.Sleep(r.timeout - r.timeout/5)
+					time.Sleep(r.extend - r.extend/5)
 				}
 			}
 		}()
