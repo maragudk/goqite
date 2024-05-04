@@ -2,9 +2,9 @@
 // on the underlying queue.
 //
 // It provides:
-// - Limit on how many jobs can be run simultaneously
-// - Automatic message timeout extension while the job is running
-// - Graceful shutdown
+//   - Limit on how many jobs can be run simultaneously
+//   - Automatic message timeout extension while the job is running
+//   - Graceful shutdown
 package jobs
 
 import (
@@ -22,11 +22,16 @@ import (
 	"github.com/maragudk/goqite"
 )
 
+// NewRunnerOpts are options for [NewRunner].
+//   - [NewRunnerOpts.Limit] is for how many jobs can be run simultaneously.
+//   - [NewRunner.PollInterval] is how often the runner polls the queue for new messages.
+//   - [NewRunner.ExtendTimeout] is by how much a job message timeout is extended each time while the job is running.
 type NewRunnerOpts struct {
-	Limit        int
-	Log          logger
-	PollInterval time.Duration
-	Queue        *goqite.Queue
+	Limit         int
+	Log           logger
+	PollInterval  time.Duration
+	Queue         *goqite.Queue
+	ExtendTimeout time.Duration
 }
 
 func NewRunner(opts NewRunnerOpts) *Runner {
@@ -42,12 +47,17 @@ func NewRunner(opts NewRunnerOpts) *Runner {
 		opts.PollInterval = 100 * time.Millisecond
 	}
 
+	if opts.ExtendTimeout == 0 {
+		opts.ExtendTimeout = 5 * time.Second
+	}
+
 	return &Runner{
 		jobCountLimit: opts.Limit,
 		jobs:          make(map[string]Func),
 		log:           opts.Log,
 		pollInterval:  opts.PollInterval,
 		queue:         opts.Queue,
+		timeout:       opts.ExtendTimeout,
 	}
 }
 
@@ -59,6 +69,7 @@ type Runner struct {
 	log           logger
 	pollInterval  time.Duration
 	queue         *goqite.Queue
+	timeout       time.Duration
 }
 
 type message struct {
@@ -153,25 +164,24 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		defer cancel()
 
 		// Extend the job message while the job is running
-		done := make(chan struct{}, 1)
-		defer func() {
-			done <- struct{}{}
-		}()
-
 		go func() {
+			// Start by sleeping so we don't extend immediately
+			time.Sleep(r.timeout - r.timeout/5)
 			for {
 				select {
-				case <-done:
+				case <-jobCtx.Done():
 					return
 				default:
-					if err := r.queue.Extend(jobCtx, m.ID, 5*time.Second); err != nil {
+					r.log.Info("Extending message timeout")
+					if err := r.queue.Extend(jobCtx, m.ID, r.timeout); err != nil {
 						r.log.Info("Error extending message timeout", "error", err)
 					}
-					time.Sleep(3 * time.Second)
+					time.Sleep(r.timeout - r.timeout/5)
 				}
 			}
 		}()
 
+		r.log.Info("Running job", "name", jm.Name)
 		before := time.Now()
 		if err := job(jobCtx, jm.Message); err != nil {
 			r.log.Info("Error running job", "name", jm.Name, "error", err)
@@ -183,7 +193,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		deleteCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if err := r.queue.Delete(deleteCtx, m.ID); err != nil {
-			r.log.Info("Error deleting job from queue", "error", err)
+			r.log.Info("Error deleting job from queue, it will be retried", "error", err)
 		}
 	}()
 }

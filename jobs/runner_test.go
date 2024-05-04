@@ -120,6 +120,26 @@ func TestRunner_Start(t *testing.T) {
 
 		r.Start(ctx)
 	})
+
+	t.Run("extends a job's timeout if it takes longer than the default timeout", func(t *testing.T) {
+		q, r := newRunner(t)
+
+		var runCount int
+		ctx, cancel := context.WithCancel(context.Background())
+		r.Register("test", func(ctx context.Context, m []byte) error {
+			runCount++
+			// This is more than the default timeout, so it should extend
+			time.Sleep(150 * time.Millisecond)
+			cancel()
+			return nil
+		})
+
+		err := jobs.Create(ctx, q, "test", []byte("yo"))
+		is.NotError(t, err)
+
+		r.Start(ctx)
+		is.Equal(t, 1, runCount)
+	})
 }
 
 func TestCreateTx(t *testing.T) {
@@ -200,7 +220,7 @@ func ExampleRunner_Start() {
 func newRunner(t *testing.T) (*goqite.Queue, *jobs.Runner) {
 	t.Helper()
 
-	q := internaltesting.NewQ(t, goqite.NewOpts{}, ":memory:")
-	r := jobs.NewRunner(jobs.NewRunnerOpts{Log: internaltesting.NewLogger(t), Queue: q})
+	q := internaltesting.NewQ(t, goqite.NewOpts{Timeout: 100 * time.Millisecond}, ":memory:")
+	r := jobs.NewRunner(jobs.NewRunnerOpts{Limit: 10, Log: internaltesting.NewLogger(t), Queue: q, ExtendTimeout: 100 * time.Millisecond})
 	return q, r
 }
