@@ -3,12 +3,14 @@ package sql
 import (
 	"database/sql"
 	"fmt"
+
+	common "github.com/maragudk/goqite/internal/common"
 )
 
-func InTx(db *sql.DB, cb func(*sql.Tx) error) (err error) {
+func InTx(db *sql.DB, cb func(*sql.Tx) (common.Message, error)) (response common.Message, err error) {
 	tx, txErr := db.Begin()
 	if txErr != nil {
-		return fmt.Errorf("cannot start tx: %w", txErr)
+		return common.Message{}, fmt.Errorf("cannot start tx: %w", txErr)
 	}
 
 	defer func() {
@@ -18,15 +20,16 @@ func InTx(db *sql.DB, cb func(*sql.Tx) error) (err error) {
 		}
 	}()
 
-	if err := cb(tx); err != nil {
-		return rollback(tx, err)
+	response, err = cb(tx)
+	if err != nil {
+		return response, rollback(tx, err)
 	}
 
 	if txErr := tx.Commit(); txErr != nil {
-		return fmt.Errorf("cannot commit tx: %w", txErr)
+		return common.Message{}, fmt.Errorf("cannot commit tx: %w", txErr)
 	}
 
-	return nil
+	return response, nil
 }
 
 func rollback(tx *sql.Tx, err error) error {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	common "github.com/maragudk/goqite/internal/common"
 	internalsql "github.com/maragudk/goqite/internal/sql"
 )
 
@@ -71,49 +72,42 @@ type Queue struct {
 	timeout    time.Duration
 }
 
-type ID string
-
-type Message struct {
-	ID    ID
-	Delay time.Duration
-	Body  []byte
-}
-
 // Send a Message to the queue with an optional delay.
-func (q *Queue) Send(ctx context.Context, m Message) error {
-	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
+func (q *Queue) Send(ctx context.Context, m common.Message) (common.Message, error) {
+	return internalsql.InTx(q.db, func(tx *sql.Tx) (common.Message, error) {
 		return q.SendTx(ctx, tx, m)
 	})
 }
 
 // SendTx is like Send, but within an existing transaction.
-func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) error {
+func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m common.Message) (common.Message, error) {
 	if m.Delay < 0 {
 		panic("delay cannot be negative")
 	}
 
 	timeout := time.Now().Add(m.Delay).Format(rfc3339Milli)
 
-	_, err := tx.ExecContext(ctx, `insert into goqite (queue, body, timeout) values (?, ?, ?)`, q.name, m.Body, timeout)
+	var ret string
+	err := tx.QueryRowContext(ctx, `insert into goqite (queue, body, timeout) values (?, ?, ?) returning id`, q.name, m.Body, timeout).Scan(&ret)
 	if err != nil {
-		return err
+		return common.Message{}, err
 	}
-	return nil
+	return common.Message{ID: common.ID(ret)}, nil
 }
 
 // Receive a Message from the queue, or nil if there is none.
-func (q *Queue) Receive(ctx context.Context) (*Message, error) {
-	var m *Message
-	err := internalsql.InTx(q.db, func(tx *sql.Tx) error {
+func (q *Queue) Receive(ctx context.Context) (*common.Message, error) {
+	var m *common.Message
+	_, err := internalsql.InTx(q.db, func(tx *sql.Tx) (common.Message, error) {
 		var err error
 		m, err = q.ReceiveTx(ctx, tx)
-		return err
+		return common.Message{}, err
 	})
 	return m, err
 }
 
 // ReceiveTx is like Receive, but within an existing transaction.
-func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
+func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*common.Message, error) {
 	now := time.Now()
 	nowFormatted := now.Format(rfc3339Milli)
 	timeoutFormatted := now.Add(q.timeout).Format(rfc3339Milli)
@@ -134,7 +128,7 @@ func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 		)
 		returning id, body`
 
-	var m Message
+	var m common.Message
 	if err := tx.QueryRowContext(ctx, query, timeoutFormatted, q.name, nowFormatted, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -146,7 +140,7 @@ func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 
 // ReceiveAndWait for a Message from the queue, polling at the given interval, until the context is cancelled.
 // If the context is cancelled, the error will be non-nil. See [context.Context.Err].
-func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Message, error) {
+func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*common.Message, error) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -167,14 +161,14 @@ func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Me
 }
 
 // Extend a Message timeout by the given delay from now.
-func (q *Queue) Extend(ctx context.Context, id ID, delay time.Duration) error {
-	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
-		return q.ExtendTx(ctx, tx, id, delay)
+func (q *Queue) Extend(ctx context.Context, id common.ID, delay time.Duration) (common.Message, error) {
+	return internalsql.InTx(q.db, func(tx *sql.Tx) (common.Message, error) {
+		return common.Message{}, q.ExtendTx(ctx, tx, id, delay)
 	})
 }
 
 // ExtendTx is like Extend, but within an existing transaction.
-func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Duration) error {
+func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id common.ID, delay time.Duration) error {
 	if delay < 0 {
 		panic("delay cannot be negative")
 	}
@@ -186,14 +180,14 @@ func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Dura
 }
 
 // Delete a Message from the queue by id.
-func (q *Queue) Delete(ctx context.Context, id ID) error {
-	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
-		return q.DeleteTx(ctx, tx, id)
+func (q *Queue) Delete(ctx context.Context, id common.ID) (common.Message, error) {
+	return internalsql.InTx(q.db, func(tx *sql.Tx) (common.Message, error) {
+		return common.Message{}, q.DeleteTx(ctx, tx, id)
 	})
 }
 
 // DeleteTx is like Delete, but within an existing transaction.
-func (q *Queue) DeleteTx(ctx context.Context, tx *sql.Tx, id ID) error {
+func (q *Queue) DeleteTx(ctx context.Context, tx *sql.Tx, id common.ID) error {
 	_, err := tx.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
 	return err
 }

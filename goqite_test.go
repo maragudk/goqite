@@ -14,6 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/maragudk/goqite"
+	common "github.com/maragudk/goqite/internal/common"
 )
 
 //go:embed schema.sql
@@ -27,11 +28,11 @@ func TestQueue(t *testing.T) {
 		is.NotError(t, err)
 		is.Nil(t, m)
 
-		m = &goqite.Message{
+		m = &common.Message{
 			Body: []byte("yo"),
 		}
 
-		err = q.Send(context.Background(), *m)
+		_, err = q.Send(context.Background(), *m)
 		is.NotError(t, err)
 
 		m, err = q.Receive(context.Background())
@@ -39,7 +40,7 @@ func TestQueue(t *testing.T) {
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))
 
-		err = q.Delete(context.Background(), m.ID)
+		_, err = q.Delete(context.Background(), m.ID)
 		is.NotError(t, err)
 
 		time.Sleep(time.Millisecond)
@@ -99,7 +100,7 @@ func TestQueue_Send(t *testing.T) {
 			is.Equal(t, "delay cannot be negative", r)
 		}()
 
-		err = q.Send(context.Background(), goqite.Message{Delay: -1})
+		_, err = q.Send(context.Background(), common.Message{Delay: -1})
 	})
 }
 
@@ -107,12 +108,12 @@ func TestQueue_Receive(t *testing.T) {
 	t.Run("does not receive a delayed message immediately", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{}, ":memory:")
 
-		m := &goqite.Message{
+		m := &common.Message{
 			Body:  []byte("yo"),
 			Delay: 2 * time.Millisecond,
 		}
 
-		err := q.Send(context.Background(), *m)
+		_, err := q.Send(context.Background(), *m)
 		is.NotError(t, err)
 
 		m, err = q.Receive(context.Background())
@@ -130,11 +131,11 @@ func TestQueue_Receive(t *testing.T) {
 	t.Run("does not receive a message twice in a row", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{}, ":memory:")
 
-		m := &goqite.Message{
+		m := &common.Message{
 			Body: []byte("yo"),
 		}
 
-		err := q.Send(context.Background(), *m)
+		_, err := q.Send(context.Background(), *m)
 		is.NotError(t, err)
 
 		m, err = q.Receive(context.Background())
@@ -150,11 +151,11 @@ func TestQueue_Receive(t *testing.T) {
 	t.Run("does receive a message up to two times if set and timeout has passed", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond, MaxReceive: 2}, ":memory:")
 
-		m := &goqite.Message{
+		m := &common.Message{
 			Body: []byte("yo"),
 		}
 
-		err := q.Send(context.Background(), *m)
+		_, err := q.Send(context.Background(), *m)
 		is.NotError(t, err)
 
 		m, err = q.Receive(context.Background())
@@ -180,7 +181,7 @@ func TestQueue_Receive(t *testing.T) {
 		q1 := newQ(t, goqite.NewOpts{}, "test.db")
 		q2 := newQ(t, goqite.NewOpts{Name: "q2"}, "test.db")
 
-		err := q1.Send(context.Background(), goqite.Message{Body: []byte("yo")})
+		_, err := q1.Send(context.Background(), common.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
 		m, err := q2.Receive(context.Background())
@@ -193,18 +194,18 @@ func TestQueue_Extend(t *testing.T) {
 	t.Run("does not receive a message that has had the timeout extended", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
 
-		m := &goqite.Message{
+		m := &common.Message{
 			Body: []byte("yo"),
 		}
 
-		err := q.Send(context.Background(), *m)
+		_, err := q.Send(context.Background(), *m)
 		is.NotError(t, err)
 
 		m, err = q.Receive(context.Background())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 
-		err = q.Extend(context.Background(), m.ID, time.Second)
+		_, err = q.Extend(context.Background(), m.ID, time.Second)
 		is.NotError(t, err)
 
 		time.Sleep(time.Millisecond)
@@ -224,18 +225,18 @@ func TestQueue_Extend(t *testing.T) {
 			is.Equal(t, "delay cannot be negative", r)
 		}()
 
-		m := &goqite.Message{
+		m := &common.Message{
 			Body: []byte("yo"),
 		}
 
-		err = q.Send(context.Background(), *m)
+		_, err = q.Send(context.Background(), *m)
 		is.NotError(t, err)
 
 		m, err = q.Receive(context.Background())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 
-		err = q.Extend(context.Background(), m.ID, -1)
+		_, err = q.Extend(context.Background(), m.ID, -1)
 	})
 }
 
@@ -254,7 +255,7 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 	t.Run("gets a message immediately if there is one", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
 
-		err := q.Send(context.Background(), goqite.Message{Body: []byte("yo")})
+		_, err := q.Send(context.Background(), common.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
 		m, err := q.ReceiveAndWait(context.Background(), time.Millisecond)
@@ -290,7 +291,7 @@ func BenchmarkQueue(b *testing.B) {
 
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				err := q.Send(context.Background(), goqite.Message{
+				_, err := q.Send(context.Background(), common.Message{
 					Body: []byte("yo"),
 				})
 				is.NotError(b, err)
@@ -299,7 +300,7 @@ func BenchmarkQueue(b *testing.B) {
 				is.NotError(b, err)
 				is.NotNil(b, m)
 
-				err = q.Delete(context.Background(), m.ID)
+				_, err = q.Delete(context.Background(), m.ID)
 				is.NotError(b, err)
 			}
 		})
@@ -336,7 +337,7 @@ func BenchmarkQueue(b *testing.B) {
 
 				for i := 0; i < 100_000; i++ {
 					q := queues[rand.Intn(len(queues))]
-					err := q.Send(context.Background(), goqite.Message{
+					_, err := q.Send(context.Background(), common.Message{
 						Body: []byte("yo"),
 					})
 					is.NotError(b, err)
@@ -351,7 +352,7 @@ func BenchmarkQueue(b *testing.B) {
 						m, err := q.Receive(context.Background())
 						is.NotError(b, err)
 
-						err = q.Delete(context.Background(), m.ID)
+						_, err = q.Delete(context.Background(), m.ID)
 						is.NotError(b, err)
 					}
 				})
