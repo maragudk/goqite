@@ -39,7 +39,7 @@ func main() {
 	// Send a message to the queue.
 	// Note that the body is an arbitrary byte slice, so you can decide
 	// what kind of payload you have. You can also set a message delay.
-	err = q.Send(context.Background(), goqite.Message{
+	err = q.Send(context.Background(), &goqite.Message{
 		Body: []byte("yo"),
 	})
 	if err != nil {
