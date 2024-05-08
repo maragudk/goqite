@@ -66,12 +66,14 @@ func main() {
 	// Send a message to the queue.
 	// Note that the body is an arbitrary byte slice, so you can decide
 	// what kind of payload you have. You can also set a message delay.
-	err = q.Send(context.Background(), goqite.Message{
+	// You can use the returned ID to interact with the message.
+	id, err := q.Send(context.Background(), goqite.Message{
 		Body: []byte("yo"),
 	})
 	if err != nil {
 		log.Fatalln(err)
 	}
+	log.Println(id)
 
 	// Receive a message from the queue, during which time it's not available to
 	// other consumers (until the message timeout has passed).
