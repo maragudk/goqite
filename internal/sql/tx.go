@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	common "github.com/maragudk/goqite/internal/common"
+	"github.com/maragudk/goqite/common"
 )
 
 func InTx(db *sql.DB, cb func(*sql.Tx) (common.Message, error)) (response common.Message, err error) {

@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	common "github.com/maragudk/goqite/internal/common"
+	"github.com/maragudk/goqite/common"
 	internalsql "github.com/maragudk/goqite/internal/sql"
 )
 

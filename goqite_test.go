@@ -14,7 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/maragudk/goqite"
-	common "github.com/maragudk/goqite/internal/common"
+	"github.com/maragudk/goqite/common"
 )
 
 //go:embed schema.sql
