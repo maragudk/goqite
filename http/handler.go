@@ -16,7 +16,7 @@ import (
 )
 
 type queue interface {
-	Send(ctx context.Context, m goqite.Message) error
+	Send(ctx context.Context, m goqite.Message) (goqite.ID, error)
 	Receive(ctx context.Context) (*goqite.Message, error)
 	ReceiveAndWait(ctx context.Context, interval time.Duration) (*goqite.Message, error)
 	Extend(ctx context.Context, id goqite.ID, delay time.Duration) error
@@ -103,7 +103,7 @@ func NewHandler(q queue) http.HandlerFunc {
 				return
 			}
 
-			if err := q.Send(r.Context(), req.Message); err != nil {
+			if _, err := q.Send(r.Context(), req.Message); err != nil {
 				http.Error(w, "error sending message: "+err.Error(), http.StatusInternalServerError)
 				return
 			}

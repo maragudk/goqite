@@ -214,7 +214,8 @@ func Create(ctx context.Context, q *goqite.Queue, name string, m []byte) error {
 	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m}); err != nil {
 		return err
 	}
-	return q.Send(ctx, goqite.Message{Body: buf.Bytes()})
+	_, err := q.Send(ctx, goqite.Message{Body: buf.Bytes()})
+	return err
 }
 
 // CreateTx is like Create, but within an existing transaction.
@@ -223,7 +224,8 @@ func CreateTx(ctx context.Context, tx *sql.Tx, q *goqite.Queue, name string, m [
 	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m}); err != nil {
 		return err
 	}
-	return q.SendTx(ctx, tx, goqite.Message{Body: buf.Bytes()})
+	_, err := q.SendTx(ctx, tx, goqite.Message{Body: buf.Bytes()})
+	return err
 }
 
 // logger matches the info level method from the slog.Logger.

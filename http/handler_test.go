@@ -29,8 +29,8 @@ type queueMock struct {
 	err error
 }
 
-func (q *queueMock) Send(ctx context.Context, m goqite.Message) error {
-	return q.err
+func (q *queueMock) Send(ctx context.Context, m goqite.Message) (goqite.ID, error) {
+	return "", q.err
 }
 
 func (q *queueMock) Receive(ctx context.Context) (*goqite.Message, error) {

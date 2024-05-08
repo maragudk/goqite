@@ -80,25 +80,31 @@ type Message struct {
 }
 
 // Send a Message to the queue with an optional delay.
-func (q *Queue) Send(ctx context.Context, m Message) error {
-	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
-		return q.SendTx(ctx, tx, m)
+// Returns the ID of the message.
+func (q *Queue) Send(ctx context.Context, m Message) (ID, error) {
+	var id ID
+	err := internalsql.InTx(q.db, func(tx *sql.Tx) error {
+		var err error
+		id, err = q.SendTx(ctx, tx, m)
+		return err
 	})
+	return id, err
 }
 
 // SendTx is like Send, but within an existing transaction.
-func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) error {
+func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) (ID, error) {
 	if m.Delay < 0 {
 		panic("delay cannot be negative")
 	}
 
 	timeout := time.Now().Add(m.Delay).Format(rfc3339Milli)
 
-	_, err := tx.ExecContext(ctx, `insert into goqite (queue, body, timeout) values (?, ?, ?)`, q.name, m.Body, timeout)
-	if err != nil {
-		return err
+	var id ID
+	query := `insert into goqite (queue, body, timeout) values (?, ?, ?) returning id`
+	if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout).Scan(&id); err != nil {
+		return id, err
 	}
-	return nil
+	return id, nil
 }
 
 // Receive a Message from the queue, or nil if there is none.
