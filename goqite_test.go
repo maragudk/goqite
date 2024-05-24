@@ -189,6 +189,23 @@ func TestQueue_Receive(t *testing.T) {
 	})
 }
 
+func TestQueue_SendAndReturnID(t *testing.T) {
+	t.Run("returns the message ID", func(t *testing.T) {
+		q := newQ(t, goqite.NewOpts{}, ":memory:")
+
+		m := goqite.Message{
+			Body: []byte("yo"),
+		}
+
+		id, err := q.SendAndReturnID(context.Background(), m)
+		is.NotError(t, err)
+		is.Equal(t, 34, len(id))
+
+		err = q.Delete(context.Background(), id)
+		is.NotError(t, err)
+	})
+}
+
 func TestQueue_Extend(t *testing.T) {
 	t.Run("does not receive a message that has had the timeout extended", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
