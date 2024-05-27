@@ -88,23 +88,24 @@ func (q *Queue) Send(ctx context.Context, m Message) error {
 
 // SendTx is like Send, but within an existing transaction.
 func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) error {
-	_, err := q.SendAndReturnIDTx(ctx, tx, m)
+	_, err := q.SendAndGetIDTx(ctx, tx, m)
 	return err
 }
 
-// SendAndReturnID is like Send, but also returns the message ID.
-func (q *Queue) SendAndReturnID(ctx context.Context, m Message) (ID, error) {
+// SendAndGetID is like Send, but also returns the message ID, which can be used
+// to interact with the message without receiving it first.
+func (q *Queue) SendAndGetID(ctx context.Context, m Message) (ID, error) {
 	var id ID
 	err := internalsql.InTx(q.db, func(tx *sql.Tx) error {
 		var err error
-		id, err = q.SendAndReturnIDTx(ctx, tx, m)
+		id, err = q.SendAndGetIDTx(ctx, tx, m)
 		return err
 	})
 	return id, err
 }
 
-// SendAndReturnIDTx is like SendAndReturnID, but within an existing transaction.
-func (q *Queue) SendAndReturnIDTx(ctx context.Context, tx *sql.Tx, m Message) (ID, error) {
+// SendAndGetIDTx is like SendAndGetID, but within an existing transaction.
+func (q *Queue) SendAndGetIDTx(ctx context.Context, tx *sql.Tx, m Message) (ID, error) {
 	if m.Delay < 0 {
 		panic("delay cannot be negative")
 	}

@@ -189,7 +189,7 @@ func TestQueue_Receive(t *testing.T) {
 	})
 }
 
-func TestQueue_SendAndReturnID(t *testing.T) {
+func TestQueue_SendAndGetID(t *testing.T) {
 	t.Run("returns the message ID", func(t *testing.T) {
 		q := newQ(t, goqite.NewOpts{}, ":memory:")
 
@@ -197,7 +197,7 @@ func TestQueue_SendAndReturnID(t *testing.T) {
 			Body: []byte("yo"),
 		}
 
-		id, err := q.SendAndReturnID(context.Background(), m)
+		id, err := q.SendAndGetID(context.Background(), m)
 		is.NotError(t, err)
 		is.Equal(t, 34, len(id))
 
