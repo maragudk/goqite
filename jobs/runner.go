@@ -119,7 +119,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			return
 		}
-		r.log.Info("Error receiving job", "error", err)
+		r.log.Error("Error receiving job", "error", err)
 		// Sleep a bit to not hammer the queue if there's an error with it
 		time.Sleep(time.Second)
 		return
@@ -131,7 +131,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 
 	var jm message
 	if err := gob.NewDecoder(bytes.NewReader(m.Body)).Decode(&jm); err != nil {
-		r.log.Info("Error decoding job message body", "error", err)
+		r.log.Error("Error decoding job message body", "error", err)
 		return
 	}
 
@@ -156,7 +156,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 
 		defer func() {
 			if rec := recover(); rec != nil {
-				r.log.Info("Recovered from panic in job", "error", rec)
+				r.log.Error("Recovered from panic in job", "error", rec)
 			}
 		}()
 
@@ -174,7 +174,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 				default:
 					r.log.Info("Extending message timeout", "name", jm.Name)
 					if err := r.queue.Extend(jobCtx, m.ID, r.extend); err != nil {
-						r.log.Info("Error extending message timeout", "error", err)
+						r.log.Error("Error extending message timeout", "error", err)
 					}
 					time.Sleep(r.extend - r.extend/5)
 				}
@@ -184,7 +184,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		r.log.Info("Running job", "name", jm.Name)
 		before := time.Now()
 		if err := job(jobCtx, jm.Message); err != nil {
-			r.log.Info("Error running job", "name", jm.Name, "error", err)
+			r.log.Error("Error running job", "name", jm.Name, "error", err)
 			return
 		}
 		duration := time.Since(before)
@@ -193,7 +193,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		deleteCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if err := r.queue.Delete(deleteCtx, m.ID); err != nil {
-			r.log.Info("Error deleting job from queue, it will be retried", "error", err)
+			r.log.Error("Error deleting job from queue, it will be retried", "error", err)
 		}
 	}()
 }
@@ -229,8 +229,11 @@ func CreateTx(ctx context.Context, tx *sql.Tx, q *goqite.Queue, name string, m [
 // logger matches the info level method from the slog.Logger.
 type logger interface {
 	Info(msg string, args ...any)
+	Error(msg string, args ...any)
 }
 
 type discardLogger struct{}
 
 func (d *discardLogger) Info(msg string, args ...any) {}
+
+func (d *discardLogger) Error(msg string, args ...any) {}

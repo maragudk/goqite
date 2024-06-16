@@ -71,6 +71,10 @@ func (f Logger) Info(msg string, args ...any) {
 	f(msg, args...)
 }
 
+func (f Logger) Error(msg string, args ...any) {
+	f(msg, args...)
+}
+
 func NewLogger(t *testing.T) Logger {
 	t.Helper()
 
