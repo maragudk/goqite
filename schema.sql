@@ -1,4 +1,4 @@
-create table goqite (
+create table if not exists goqite (
   id text primary key default ('m_' || lower(hex(randomblob(16)))),
   created text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
   updated text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
@@ -8,8 +8,8 @@ create table goqite (
   received integer not null default 0
 ) strict;
 
-create trigger goqite_updated_timestamp after update on goqite begin
+create trigger if not exists goqite_updated_timestamp after update on goqite begin
   update goqite set updated = strftime('%Y-%m-%dT%H:%M:%fZ') where id = old.id;
 end;
 
-create index goqite_queue_created_idx on goqite (queue, created);
+create index if not exists goqite_queue_created_idx on goqite (queue, created);
