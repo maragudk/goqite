@@ -22,6 +22,8 @@ import (
 	"github.com/maragudk/goqite"
 )
 
+
+
 // NewRunnerOpts are options for [NewRunner].
 //   - [NewRunner.Extend] is by how much a job message timeout is extended each time while the job is running.
 //   - [NewRunnerOpts.Limit] is for how many jobs can be run simultaneously.
@@ -76,6 +78,8 @@ type message struct {
 	Name    string
 	Message []byte
 }
+
+type ContextKey string
 
 // Start the Runner, blocking until the given context is cancelled.
 // When the context is cancelled, waits for the jobs to finish.
@@ -161,6 +165,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		}()
 
 		jobCtx, cancel := context.WithCancel(ctx)
+		jobCtx = context.WithValue(ctx, ContextKey("messageID"), m.ID)
 		defer cancel()
 
 		// Extend the job message while the job is running
