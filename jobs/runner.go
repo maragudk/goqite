@@ -22,6 +22,8 @@ import (
 	"github.com/maragudk/goqite"
 )
 
+
+
 // NewRunnerOpts are options for [NewRunner].
 //   - [NewRunner.Extend] is by how much a job message timeout is extended each time while the job is running.
 //   - [NewRunnerOpts.Limit] is for how many jobs can be run simultaneously.
@@ -76,6 +78,8 @@ type message struct {
 	Name    string
 	Message []byte
 }
+
+type ContextKey string
 
 // Start the Runner, blocking until the given context is cancelled.
 // When the context is cancelled, waits for the jobs to finish.
@@ -161,6 +165,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 		}()
 
 		jobCtx, cancel := context.WithCancel(ctx)
+		jobCtx = context.WithValue(ctx, ContextKey("messageID"), m.ID)
 		defer cancel()
 
 		// Extend the job message while the job is running
@@ -206,6 +211,25 @@ func (r *Runner) Register(name string, job Func) {
 		panic(fmt.Sprintf(`job "%v" already registered`, name))
 	}
 	r.jobs[name] = job
+}
+
+// CreateWithDelay creates a job with a specified delay and sends it to the given queue.
+// 
+// Parameters:
+//  - ctx: The context for managing the job's lifecycle.
+//  - q: The queue to which the job will be sent.
+//  - name: The name of the job.
+//  - m: The message payload for the job.
+//  - delay: The delay duration before the job is executed.
+//
+// Returns:
+//  - error: An error if the job creation or sending fails, otherwise nil.
+func CreateWithDelay(ctx context.Context, q *goqite.Queue, name string, m []byte, delay time.Duration) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m}); err != nil {
+		return err
+	}
+	return q.Send(ctx, goqite.Message{Body: buf.Bytes(), Delay: delay})
 }
 
 // Create a message for the named job in the given queue.
