@@ -19,7 +19,7 @@
         <img src="logo.png" alt="Goqite logo" class="h-24 sm:h-32 w-auto float-right lg:hidden rounded">
         <h1>goqite</h1>
         <p class="lead"><em>goqite</em> (pronounced Go-queue-ite) is a persistent message queue Go library built on SQLite and inspired by AWS SQS (but much simpler).</p>
-        <pre><code class="language-bash">$ go get github.com/maragudk/goqite</code></pre>
+        <pre><code class="language-bash">$ go get maragu.dev/goqite</code></pre>
         <p><a href="https://github.com/maragudk/goqite">See goqite on Github</a></p>
 
         <h2>Examples</h2>
@@ -28,7 +28,7 @@
 
         <pre><code class="language-go">package main
 
-import (
+        import (
 	"context"
 	"database/sql"
 	"fmt"
@@ -37,10 +37,10 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/maragudk/goqite"
-)
+	"maragu.dev/goqite"
+        )
 
-func main() {
+        func main() {
 	// Bring your own database connection, since you probably already have it,
 	// as well as some sort of schema migration system.
 	// The schema is in the schema.sql file.
@@ -100,7 +100,7 @@ func main() {
 
         <pre><code class="language-go">package main
 
-import (
+        import (
 	"context"
 	"database/sql"
 	"fmt"
@@ -109,11 +109,11 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/maragudk/goqite"
-	"github.com/maragudk/goqite/jobs"
-)
+	"maragu.dev/goqite"
+	"maragu.dev/goqite/jobs"
+        )
 
-func main() {
+        func main() {
 	log := slog.Default()
 
 	// Setup the db and goqite schema.
@@ -164,7 +164,7 @@ func main() {
       </div>
     </div>
 
-    <footer class="prose prose-sm prose-purple mt-8"><p>made in 🇩🇰 by <a href="https://www.maragu.dk">maragu</a>, maker of <a href="https://www.golang.dk">online Go courses</a></p></footer></div>
+    <footer class="prose prose-sm prose-purple mt-8"><p>made with ✨sparkles✨ by <a href="https://www.maragu.dev">maragu</a></p></footer></div>
   </div>
 </body>
 </html>
