@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	internalsql "github.com/maragudk/goqite/internal/sql"
+	internalsql "maragu.dev/goqite/internal/sql"
 )
 
 //go:embed schema.sql

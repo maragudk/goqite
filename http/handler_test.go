@@ -17,8 +17,8 @@ import (
 	"github.com/maragudk/is"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/maragudk/goqite"
-	qhttp "github.com/maragudk/goqite/http"
+	"maragu.dev/goqite"
+	qhttp "maragu.dev/goqite/http"
 )
 
 type wrapper struct {

@@ -2,13 +2,19 @@
 
 <img src="docs/logo.png" alt="Logo" width="300" align="right">
 
-[![GoDoc](https://pkg.go.dev/badge/github.com/maragudk/goqite)](https://pkg.go.dev/github.com/maragudk/goqite)
-[![Go](https://github.com/maragudk/goqite/actions/workflows/ci.yml/badge.svg)](https://github.com/maragudk/goqite/actions/workflows/ci.yml)
+[![GoDoc](https://pkg.go.dev/badge/maragu.dev/goqite)](https://pkg.go.dev/maragu.dev/goqite)
+[![CI](https://github.com/maragudk/goqite/actions/workflows/ci.yml/badge.svg)](https://github.com/maragudk/goqite/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/maragudk/goqite/graph/badge.svg?token=DxGkk2lLHF)](https://codecov.io/gh/maragudk/goqite)
 
 goqite (pronounced Go-queue-ite) is a persistent message queue Go library built on SQLite and inspired by AWS SQS (but much simpler).
 
-Made in 🇩🇰 by [maragu](https://www.maragu.dk/), maker of [online Go courses](https://www.golang.dk/).
+```shell
+go get maragu.dev/goqite
+```
+
+Made with ✨sparkles✨ by [maragu](https://www.maragu.dev/).
+
+Does your company depend on this project? [Contact me at markus@maragu.dk](mailto:markus@maragu.dk?Subject=Supporting%20your%20project) to discuss options for a one-time or recurring invoice to ensure its continued thriving.
 
 ## Features
 
@@ -36,7 +42,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/maragudk/goqite"
+	"maragu.dev/goqite"
 )
 
 func main() {
@@ -109,8 +115,8 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/maragudk/goqite"
-	"github.com/maragudk/goqite/jobs"
+	"maragu.dev/goqite"
+	"maragu.dev/goqite/jobs"
 )
 
 func main() {

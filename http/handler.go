@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/maragudk/goqite"
+	"maragu.dev/goqite"
 )
 
 type queue interface {
