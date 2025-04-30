@@ -86,16 +86,16 @@ func (r *Runner) Start(ctx context.Context) {
 	}
 	sort.Strings(names)
 
-	r.log.Info("Starting", "jobs", names)
+	r.log.Info("Starting job runner", "jobs", names)
 
 	var wg sync.WaitGroup
 
 	for {
 		select {
 		case <-ctx.Done():
-			r.log.Info("Stopping")
+			r.log.Info("Stopping job runner")
 			wg.Wait()
-			r.log.Info("Stopped")
+			r.log.Info("Stopped job runner")
 			return
 		default:
 			r.receiveAndRun(ctx, &wg)
@@ -156,7 +156,7 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 
 		defer func() {
 			if rec := recover(); rec != nil {
-				r.log.Info("Recovered from panic in job", "error", rec)
+				r.log.Info("Recovered from panic in job", "name", jm.Name, "id", m.ID, "error", rec)
 			}
 		}()
 
@@ -172,28 +172,28 @@ func (r *Runner) receiveAndRun(ctx context.Context, wg *sync.WaitGroup) {
 				case <-jobCtx.Done():
 					return
 				default:
-					r.log.Info("Extending message timeout", "name", jm.Name)
+					r.log.Info("Extending message timeout", "name", jm.Name, "id", m.ID)
 					if err := r.queue.Extend(jobCtx, m.ID, r.extend); err != nil {
-						r.log.Info("Error extending message timeout", "error", err)
+						r.log.Info("Error extending message timeout", "name", jm.Name, "id", m.ID, "error", err)
 					}
 					time.Sleep(r.extend - r.extend/5)
 				}
 			}
 		}()
 
-		r.log.Info("Running job", "name", jm.Name)
+		r.log.Info("Running job", "name", jm.Name, "id", m.ID)
 		before := time.Now()
 		if err := job(jobCtx, jm.Message); err != nil {
-			r.log.Info("Error running job", "name", jm.Name, "error", err)
+			r.log.Info("Error running job", "name", jm.Name, "id", m.ID, "error", err)
 			return
 		}
 		duration := time.Since(before)
-		r.log.Info("Ran job", "name", jm.Name, "duration", duration)
+		r.log.Info("Ran job", "name", jm.Name, "id", m.ID, "duration", duration)
 
-		deleteCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		deleteCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
 		if err := r.queue.Delete(deleteCtx, m.ID); err != nil {
-			r.log.Info("Error deleting job from queue, it will be retried", "error", err)
+			r.log.Info("Error deleting job from queue, it will be retried", "name", jm.Name, "id", m.ID, "error", err)
 		}
 	}()
 }
