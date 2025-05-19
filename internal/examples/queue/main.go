@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -13,19 +14,27 @@ import (
 )
 
 func main() {
-	// Bring your own database connection, since you probably already have it,
-	// as well as some sort of schema migration system.
-	// The schema is in the schema.sql file.
-	// Alternatively, use the goqite.Setup function to create the schema.
+	log := slog.Default()
+
+	// Setup the db
 	db, err := sql.Open("sqlite3", ":memory:?_journal=WAL&_timeout=5000&_fk=true")
 	if err != nil {
-		log.Fatalln(err)
+		log.Info("Error opening db", "error", err)
+		return
 	}
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 
-	if err := goqite.Setup(context.Background(), db); err != nil {
-		log.Fatalln(err)
+	// Setup the schema
+	schema, err := os.ReadFile("schema_sqlite.sql")
+	if err != nil {
+		log.Info("Error reading schema:", "error", err)
+		return
+	}
+
+	if _, err := db.Exec(string(schema)); err != nil {
+		log.Info("Error executing schema:", "error", err)
+		return
 	}
 
 	// Create a new queue named "jobs".
@@ -43,14 +52,16 @@ func main() {
 		Body: []byte("yo"),
 	})
 	if err != nil {
-		log.Fatalln(err)
+		log.Info("Error sending message", "error", err)
+		return
 	}
 
 	// Receive a message from the queue, during which time it's not available to
 	// other consumers (until the message timeout has passed).
 	m, err := q.Receive(context.Background())
 	if err != nil {
-		log.Fatalln(err)
+		log.Info("Error receiving message", "error", err)
+		return
 	}
 
 	fmt.Println(string(m.Body))
@@ -58,11 +69,13 @@ func main() {
 	// If you need more time for processing the message, you can extend
 	// the message timeout as many times as you want.
 	if err := q.Extend(context.Background(), m.ID, time.Second); err != nil {
-		log.Fatalln(err)
+		log.Info("Error extending message timeout", "error", err)
+		return
 	}
 
 	// Make sure to delete the message, so it doesn't get redelivered.
 	if err := q.Delete(context.Background(), m.ID); err != nil {
-		log.Fatalln(err)
+		log.Info("Error deleting message", "error", err)
+		return
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
@@ -170,7 +171,7 @@ func TestCreateTx(t *testing.T) {
 func ExampleRunner_Start() {
 	log := slog.Default()
 
-	// Setup the db and goqite schema.
+	// Setup the db
 	db, err := sql.Open("sqlite3", ":memory:?_journal=WAL&_timeout=5000&_fk=true")
 	if err != nil {
 		log.Info("Error opening db", "error", err)
@@ -178,8 +179,16 @@ func ExampleRunner_Start() {
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 
-	if err := goqite.Setup(context.Background(), db); err != nil {
-		log.Info("Error in setup", "error", err)
+	// Setup the schema
+	schema, err := os.ReadFile("schema_sqlite.sql")
+	if err != nil {
+		log.Info("Error reading schema:", "error", err)
+		return
+	}
+
+	if _, err := db.Exec(string(schema)); err != nil {
+		log.Info("Error executing schema:", "error", err)
+		return
 	}
 
 	// Make a new queue for the jobs. You can have as many of these as you like, just name them differently.
@@ -191,7 +200,7 @@ func ExampleRunner_Start() {
 	// Make a job runner with a job limit of 1 and a short message poll interval.
 	r := jobs.NewRunner(jobs.NewRunnerOpts{
 		Limit:        1,
-		Log:          slog.Default(),
+		Log:          log,
 		PollInterval: 10 * time.Millisecond,
 		Queue:        q,
 	})

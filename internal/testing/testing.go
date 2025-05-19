@@ -12,7 +12,7 @@ import (
 	"maragu.dev/goqite"
 )
 
-//go:embed schema.sql
+//go:embed schema_sqlite.sql
 var schema string
 
 func NewDB(t testing.TB, path string) *sql.DB {

@@ -12,9 +12,6 @@ import (
 	internalsql "maragu.dev/goqite/internal/sql"
 )
 
-//go:embed schema.sql
-var schema string
-
 // rfc3339Milli is like time.RFC3339Nano, but with millisecond precision, and fractional seconds do not have trailing
 // zeros removed.
 const rfc3339Milli = "2006-01-02T15:04:05.000Z07:00"
@@ -214,11 +211,5 @@ func (q *Queue) Delete(ctx context.Context, id ID) error {
 // DeleteTx is like Delete, but within an existing transaction.
 func (q *Queue) DeleteTx(ctx context.Context, tx *sql.Tx, id ID) error {
 	_, err := tx.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
-	return err
-}
-
-// Setup the queue in the database.
-func Setup(ctx context.Context, db *sql.DB) error {
-	_, err := db.ExecContext(ctx, schema)
 	return err
 }
