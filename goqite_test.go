@@ -16,7 +16,7 @@ import (
 	"maragu.dev/goqite"
 )
 
-//go:embed schema.sql
+//go:embed schema_sqlite.sql
 var schema string
 
 func TestQueue(t *testing.T) {
@@ -278,24 +278,6 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 		is.NotError(t, err)
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))
-	})
-}
-
-func TestSetup(t *testing.T) {
-	t.Run("creates the database table", func(t *testing.T) {
-		db, err := sql.Open("sqlite3", ":memory:?_journal=WAL&_timeout=5000&_fk=true")
-		if err != nil {
-			t.Fatal(err)
-		}
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(1)
-
-		_, err = db.Exec(`select * from goqite`)
-		is.Equal(t, "no such table: goqite", err.Error())
-		err = goqite.Setup(context.Background(), db)
-		is.NotError(t, err)
-		_, err = db.Exec(`select * from goqite`)
-		is.NotError(t, err)
 	})
 }
 

@@ -3,13 +3,11 @@ package http_test
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +17,7 @@ import (
 
 	"maragu.dev/goqite"
 	qhttp "maragu.dev/goqite/http"
+	internaltesting "maragu.dev/goqite/internal/testing"
 )
 
 type wrapper struct {
@@ -280,34 +279,6 @@ func newRequest(t testing.TB, h http.HandlerFunc, method string, m *goqite.Messa
 func newH(t testing.TB, opts goqite.NewOpts) http.HandlerFunc {
 	t.Helper()
 
-	q := newQ(t, opts)
+	q := internaltesting.NewQ(t, opts, ":memory:")
 	return qhttp.NewHandler(q)
-}
-
-func newQ(t testing.TB, opts goqite.NewOpts) *goqite.Queue {
-	t.Helper()
-
-	db, err := sql.Open("sqlite3", ":memory:?_journal=WAL&_timeout=5000&_fk=true")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-
-	schema, err := os.ReadFile("../schema.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = db.Exec(string(schema))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	opts.DB = db
-
-	if opts.Name == "" {
-		opts.Name = "test"
-	}
-
-	return goqite.New(opts)
 }
