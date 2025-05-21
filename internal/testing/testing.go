@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/mattn/go-sqlite3"
@@ -12,17 +13,18 @@ import (
 	"maragu.dev/goqite"
 )
 
-func Run(t *testing.T, name string, f func(t *testing.T, db *sql.DB)) {
+func Run(t *testing.T, name string, timeout time.Duration, f func(t *testing.T, db *sql.DB, q *goqite.Queue)) {
 	t.Run(name, func(t *testing.T) {
 		t.Run("sqlite", func(t *testing.T) {
 			db := NewSQLiteDB(t)
-			f(t, db)
+			q := NewQ(t, goqite.NewOpts{DB: db, Timeout: timeout, SQLFlavor: goqite.SQLFlavorSQLite})
+			f(t, db, q)
 		})
 
 		t.Run("postgresql", func(t *testing.T) {
-			t.SkipNow()
 			db := NewPostgreSQLDB(t)
-			f(t, db)
+			q := NewQ(t, goqite.NewOpts{DB: db, Timeout: timeout, SQLFlavor: goqite.SQLFlavorPostgreSQL})
+			f(t, db, q)
 		})
 	})
 }

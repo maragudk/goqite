@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
-	"errors"
 	"math/rand/v2"
 	"strings"
 	"sync"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	internalsql "maragu.dev/goqite/internal/sql"
 )
 
 //go:embed schema_postgres.sql
@@ -56,11 +57,24 @@ func migrateTemplate1(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	if _, err := db.ExecContext(t.Context(), `select * from goqite`); errors.Is(err, sql.ErrNoRows) {
-		return
-	}
+	err := internalsql.InTx(t.Context(), db, func(tx *sql.Tx) error {
+		var exists bool
+		query := `select exists (select from information_schema.tables where table_name = 'goqite')`
+		if err := tx.QueryRowContext(t.Context(), query).Scan(&exists); err != nil {
+			return err
+		}
 
-	if _, err := db.ExecContext(t.Context(), postgresSchema); err != nil {
+		if exists {
+			return nil
+		}
+
+		if _, err := tx.ExecContext(t.Context(), postgresSchema); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 

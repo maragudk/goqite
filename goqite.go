@@ -68,6 +68,7 @@ func New(opts NewOpts) *Queue {
 
 	return &Queue{
 		db:         opts.DB,
+		flavor:     opts.SQLFlavor,
 		name:       opts.Name,
 		maxReceive: opts.MaxReceive,
 		timeout:    opts.Timeout,
@@ -76,6 +77,7 @@ func New(opts NewOpts) *Queue {
 
 type Queue struct {
 	db         *sql.DB
+	flavor     SQLFlavor
 	maxReceive int
 	name       string
 	timeout    time.Duration
@@ -120,13 +122,23 @@ func (q *Queue) SendAndGetIDTx(ctx context.Context, tx *sql.Tx, m Message) (ID, 
 		panic("delay cannot be negative")
 	}
 
-	timeout := time.Now().Add(m.Delay).Format(rfc3339Milli)
+	timeout := time.Now().Add(m.Delay)
 
 	var id ID
-	query := `insert into goqite (queue, body, timeout) values (?, ?, ?) returning id`
-	if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout).Scan(&id); err != nil {
-		return "", err
+	switch q.flavor {
+	case SQLFlavorSQLite:
+		query := `insert into goqite (queue, body, timeout) values (?, ?, ?) returning id`
+		if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout.Format(rfc3339Milli)).Scan(&id); err != nil {
+			return "", err
+		}
+
+	case SQLFlavorPostgreSQL:
+		query := `insert into goqite (queue, body, timeout) values ($1, $2, $3) returning id`
+		if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout).Scan(&id); err != nil {
+			return "", err
+		}
 	}
+
 	return id, nil
 }
 
@@ -144,32 +156,60 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 // ReceiveTx is like Receive, but within an existing transaction.
 func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 	now := time.Now()
-	nowFormatted := now.Format(rfc3339Milli)
-	timeoutFormatted := now.Add(q.timeout).Format(rfc3339Milli)
-
-	query := `
-		update goqite
-		set
-			timeout = ?,
-			received = received + 1
-		where id = (
-			select id from goqite
-			where
-				queue = ? and
-				? >= timeout and
-				received < ?
-			order by created
-			limit 1
-		)
-		returning id, body`
+	timeout := now.Add(q.timeout)
 
 	var m Message
-	if err := tx.QueryRowContext(ctx, query, timeoutFormatted, q.name, nowFormatted, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+
+	switch q.flavor {
+	case SQLFlavorSQLite:
+		query := `
+			update goqite
+			set
+				timeout = ?,
+				received = received + 1
+			where id = (
+				select id from goqite
+				where
+					queue = ? and
+					? >= timeout and
+					received < ?
+				order by created
+				limit 1
+			)
+			returning id, body`
+
+		if err := tx.QueryRowContext(ctx, query, timeout.Format(rfc3339Milli), q.name, now.Format(rfc3339Milli), q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return nil, err
+
+	case SQLFlavorPostgreSQL:
+		query := `
+			update goqite
+			set
+				timeout = $1,
+				received = received + 1
+			where id = (
+				select id from goqite
+				where
+					queue = $2 and
+					$3 >= timeout and
+					received < $4
+				order by created
+				limit 1
+			)
+			returning id, body`
+
+		if err := tx.QueryRowContext(ctx, query, timeout, q.name, now, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, err
+		}
 	}
+
 	return &m, nil
 }
 
@@ -208,9 +248,17 @@ func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Dura
 		panic("delay cannot be negative")
 	}
 
-	timeout := time.Now().Add(delay).Format(rfc3339Milli)
+	timeout := time.Now().Add(delay)
 
-	_, err := tx.ExecContext(ctx, `update goqite set timeout = ? where queue = ? and id = ?`, timeout, q.name, id)
+	var err error
+	switch q.flavor {
+	case SQLFlavorSQLite:
+		_, err = tx.ExecContext(ctx, `update goqite set timeout = ? where queue = ? and id = ?`, timeout.Format(rfc3339Milli), q.name, id)
+
+	case SQLFlavorPostgreSQL:
+		_, err = tx.ExecContext(ctx, `update goqite set timeout = $1 where queue = $2 and id = $3`, timeout, q.name, id)
+	}
+
 	return err
 }
 
@@ -223,6 +271,14 @@ func (q *Queue) Delete(ctx context.Context, id ID) error {
 
 // DeleteTx is like Delete, but within an existing transaction.
 func (q *Queue) DeleteTx(ctx context.Context, tx *sql.Tx, id ID) error {
-	_, err := tx.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
+	var err error
+	switch q.flavor {
+	case SQLFlavorSQLite:
+		_, err = tx.ExecContext(ctx, `delete from goqite where queue = ? and id = ?`, q.name, id)
+
+	case SQLFlavorPostgreSQL:
+		_, err = tx.ExecContext(ctx, `delete from goqite where queue = $1 and id = $2`, q.name, id)
+	}
+
 	return err
 }

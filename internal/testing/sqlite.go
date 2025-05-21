@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -33,8 +34,13 @@ func NewSQLiteDB(t testing.TB) *sql.DB {
 	return db
 }
 
+var mutex sync.Mutex
+
 func cleanupSQLite(t testing.TB) {
 	t.Helper()
+
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	files, err := filepath.Glob("test.db*")
 	if err != nil {
