@@ -99,7 +99,7 @@ func TestQueue_Receive(t *testing.T) {
 	internaltesting.Run(t, "does not receive a delayed message immediately", 0, func(t *testing.T, db *sql.DB, q *goqite.Queue) {
 		m := &goqite.Message{
 			Body:  []byte("yo"),
-			Delay: 2 * time.Millisecond,
+			Delay: 100 * time.Millisecond,
 		}
 
 		err := q.Send(context.Background(), *m)
@@ -109,7 +109,7 @@ func TestQueue_Receive(t *testing.T) {
 		is.NotError(t, err)
 		is.Nil(t, m)
 
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 
 		m, err = q.Receive(context.Background())
 		is.NotError(t, err)
