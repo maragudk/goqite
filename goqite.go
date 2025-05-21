@@ -224,7 +224,7 @@ func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Me
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-ticker.C:
-			m, err := q.Receive(ctx)
+			m, err := q.Receive(context.WithoutCancel(ctx))
 			if err != nil {
 				return nil, err
 			}

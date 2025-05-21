@@ -169,16 +169,29 @@ func TestQueue_Receive(t *testing.T) {
 		is.Nil(t, m)
 	})
 
-	internaltesting.Run(t, "does not receive a message from a different queue", 0, func(t *testing.T, db *sql.DB, _ *goqite.Queue) {
-		q1 := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Name: "q1"})
-		q2 := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Name: "q2"})
+	t.Run("does not receive a message from a different queue", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			flavor goqite.SQLFlavor
+			db     *sql.DB
+		}{
+			{"sqlite", goqite.SQLFlavorPostgreSQL, internaltesting.NewSQLiteDB(t)},
+			{"postgresql", goqite.SQLFlavorPostgreSQL, internaltesting.NewPostgreSQLDB(t)},
+		}
 
-		err := q1.Send(context.Background(), goqite.Message{Body: []byte("yo")})
-		is.NotError(t, err)
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				q1 := internaltesting.NewQ(t, goqite.NewOpts{DB: test.db, Name: "q1", SQLFlavor: test.flavor})
+				q2 := internaltesting.NewQ(t, goqite.NewOpts{DB: test.db, Name: "q2", SQLFlavor: test.flavor})
 
-		m, err := q2.Receive(context.Background())
-		is.NotError(t, err)
-		is.Nil(t, m)
+				err := q1.Send(context.Background(), goqite.Message{Body: []byte("yo")})
+				is.NotError(t, err)
+
+				m, err := q2.Receive(context.Background())
+				is.NotError(t, err)
+				is.Nil(t, m)
+			})
+		}
 	})
 }
 
