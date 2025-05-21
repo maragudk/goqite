@@ -2,7 +2,6 @@ package testing
 
 import (
 	"database/sql"
-	_ "embed"
 	"fmt"
 	"testing"
 	"time"
