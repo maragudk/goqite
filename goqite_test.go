@@ -3,7 +3,6 @@ package goqite_test
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -15,9 +14,6 @@ import (
 	"maragu.dev/goqite"
 	internaltesting "maragu.dev/goqite/internal/testing"
 )
-
-//go:embed schema_sqlite.sql
-var schema string
 
 func TestQueue(t *testing.T) {
 	internaltesting.Run(t, "can send and receive and delete a message", time.Millisecond, func(t *testing.T, db *sql.DB, q *goqite.Queue) {
