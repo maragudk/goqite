@@ -175,7 +175,7 @@ func TestQueue_Receive(t *testing.T) {
 			flavor goqite.SQLFlavor
 			db     *sql.DB
 		}{
-			{"sqlite", goqite.SQLFlavorPostgreSQL, internaltesting.NewSQLiteDB(t)},
+			{"sqlite", goqite.SQLFlavorSQLite, internaltesting.NewSQLiteDB(t)},
 			{"postgresql", goqite.SQLFlavorPostgreSQL, internaltesting.NewPostgreSQLDB(t)},
 		}
 
