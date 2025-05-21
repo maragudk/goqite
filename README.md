@@ -193,6 +193,64 @@ func main() {
 }
 ```
 
+## Schemas
+
+<details>
+	<summary>SQLite</summary>
+
+```sql
+create table goqite (
+  id text primary key default ('m_' || lower(hex(randomblob(16)))),
+  created text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
+  updated text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
+  queue text not null,
+  body blob not null,
+  timeout text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
+  received integer not null default 0
+) strict;
+
+create trigger goqite_updated_timestamp after update on goqite begin
+  update goqite set updated = strftime('%Y-%m-%dT%H:%M:%fZ') where id = old.id;
+end;
+
+create index goqite_queue_created_idx on goqite (queue, created);
+```
+
+</details>
+
+<details>
+	<summary>PostgreSQL</summary>
+
+```sql
+create extension if not exists pgcrypto;
+
+create function update_timestamp()
+returns trigger as $$
+begin
+   new.updated = now();
+   return new;
+end;
+$$ language plpgsql;
+
+create table goqite (
+  id text primary key default ('m_' || encode(gen_random_bytes(16), 'hex')),
+  created timestamptz not null default now(),
+  updated timestamptz not null default now(),
+  queue text not null,
+  body bytea not null,
+  timeout timestamptz not null default now(),
+  received integer not null default 0
+);
+
+create trigger goqite_updated_timestamp
+before update on goqite
+for each row execute procedure update_timestamp();
+
+create index goqite_queue_created_idx on goqite (queue, created);
+```
+
+</details>
+
 ## Benchmarks
 
 Just for fun, some benchmarks. 🤓
