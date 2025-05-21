@@ -17,7 +17,7 @@ import (
 
 func TestQueue(t *testing.T) {
 	internaltesting.Run(t, "can send and receive and delete a message", time.Millisecond, func(t *testing.T, db *sql.DB, q *goqite.Queue) {
-		m, err := q.Receive(context.Background())
+		m, err := q.Receive(t.Context())
 		is.NotError(t, err)
 		is.Nil(t, m)
 
@@ -25,20 +25,20 @@ func TestQueue(t *testing.T) {
 			Body: []byte("yo"),
 		}
 
-		err = q.Send(context.Background(), *m)
+		err = q.Send(t.Context(), *m)
 		is.NotError(t, err)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))
 
-		err = q.Delete(context.Background(), m.ID)
+		err = q.Delete(t.Context(), m.ID)
 		is.NotError(t, err)
 
 		time.Sleep(time.Millisecond)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
@@ -91,7 +91,7 @@ func TestQueue_Send(t *testing.T) {
 			is.Equal(t, "delay cannot be negative", r)
 		}()
 
-		err = q.Send(context.Background(), goqite.Message{Delay: -1})
+		err = q.Send(t.Context(), goqite.Message{Delay: -1})
 	})
 }
 
@@ -102,16 +102,16 @@ func TestQueue_Receive(t *testing.T) {
 			Delay: 100 * time.Millisecond,
 		}
 
-		err := q.Send(context.Background(), *m)
+		err := q.Send(t.Context(), *m)
 		is.NotError(t, err)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.Nil(t, m)
 
 		time.Sleep(100 * time.Millisecond)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))
@@ -122,15 +122,15 @@ func TestQueue_Receive(t *testing.T) {
 			Body: []byte("yo"),
 		}
 
-		err := q.Send(context.Background(), *m)
+		err := q.Send(t.Context(), *m)
 		is.NotError(t, err)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
@@ -140,31 +140,31 @@ func TestQueue_Receive(t *testing.T) {
 			Body: []byte("yo"),
 		}
 
-		err := q.Send(context.Background(), *m)
+		err := q.Send(t.Context(), *m)
 		is.NotError(t, err)
 
-		m, err = q.Receive(context.Background())
-		is.NotError(t, err)
-		is.NotNil(t, m)
-		is.Equal(t, "yo", string(m.Body))
-
-		time.Sleep(time.Millisecond)
-
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))
 
 		time.Sleep(time.Millisecond)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))
 
 		time.Sleep(time.Millisecond)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
+		is.NotError(t, err)
+		is.NotNil(t, m)
+		is.Equal(t, "yo", string(m.Body))
+
+		time.Sleep(time.Millisecond)
+
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
@@ -184,10 +184,10 @@ func TestQueue_Receive(t *testing.T) {
 				q1 := internaltesting.NewQ(t, goqite.NewOpts{DB: test.db, Name: "q1", SQLFlavor: test.flavor})
 				q2 := internaltesting.NewQ(t, goqite.NewOpts{DB: test.db, Name: "q2", SQLFlavor: test.flavor})
 
-				err := q1.Send(context.Background(), goqite.Message{Body: []byte("yo")})
+				err := q1.Send(t.Context(), goqite.Message{Body: []byte("yo")})
 				is.NotError(t, err)
 
-				m, err := q2.Receive(context.Background())
+				m, err := q2.Receive(t.Context())
 				is.NotError(t, err)
 				is.Nil(t, m)
 			})
@@ -201,11 +201,11 @@ func TestQueue_SendAndGetID(t *testing.T) {
 			Body: []byte("yo"),
 		}
 
-		id, err := q.SendAndGetID(context.Background(), m)
+		id, err := q.SendAndGetID(t.Context(), m)
 		is.NotError(t, err)
 		is.Equal(t, 34, len(id))
 
-		err = q.Delete(context.Background(), id)
+		err = q.Delete(t.Context(), id)
 		is.NotError(t, err)
 	})
 }
@@ -216,19 +216,19 @@ func TestQueue_Extend(t *testing.T) {
 			Body: []byte("yo"),
 		}
 
-		err := q.Send(context.Background(), *m)
+		err := q.Send(t.Context(), *m)
 		is.NotError(t, err)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 
-		err = q.Extend(context.Background(), m.ID, time.Second)
+		err = q.Extend(t.Context(), m.ID, time.Second)
 		is.NotError(t, err)
 
 		time.Sleep(time.Millisecond)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.Nil(t, m)
 	})
@@ -245,20 +245,20 @@ func TestQueue_Extend(t *testing.T) {
 			Body: []byte("yo"),
 		}
 
-		err = q.Send(context.Background(), *m)
+		err = q.Send(t.Context(), *m)
 		is.NotError(t, err)
 
-		m, err = q.Receive(context.Background())
+		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.NotNil(t, m)
 
-		err = q.Extend(context.Background(), m.ID, -1)
+		err = q.Extend(t.Context(), m.ID, -1)
 	})
 }
 
 func TestQueue_ReceiveAndWait(t *testing.T) {
 	internaltesting.Run(t, "waits for a message until the context is cancelled", 0, func(t *testing.T, db *sql.DB, q *goqite.Queue) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
 		defer cancel()
 
 		m, err := q.ReceiveAndWait(ctx, time.Millisecond)
@@ -267,10 +267,10 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 	})
 
 	internaltesting.Run(t, "gets a message immediately if there is one", 0, func(t *testing.T, db *sql.DB, q *goqite.Queue) {
-		err := q.Send(context.Background(), goqite.Message{Body: []byte("yo")})
+		err := q.Send(t.Context(), goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
-		m, err := q.ReceiveAndWait(context.Background(), time.Millisecond)
+		m, err := q.ReceiveAndWait(t.Context(), time.Millisecond)
 		is.NotError(t, err)
 		is.NotNil(t, m)
 		is.Equal(t, "yo", string(m.Body))

@@ -49,7 +49,7 @@ func TestRunner_Start(t *testing.T) {
 		q, r := newRunner(t)
 
 		var ran bool
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		r.Register("test", func(ctx context.Context, m []byte) error {
 			ran = true
 			is.Equal(t, "yo", string(m))
@@ -68,7 +68,7 @@ func TestRunner_Start(t *testing.T) {
 		q, r := newRunner(t)
 
 		var ranTest, ranDifferentTest bool
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		r.Register("test", func(ctx context.Context, m []byte) error {
 			ranTest = true
 			return nil
@@ -90,7 +90,7 @@ func TestRunner_Start(t *testing.T) {
 	t.Run("panics if the job is not registered", func(t *testing.T) {
 		q, r := newRunner(t)
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
 		err := jobs.Create(ctx, q, "test", []byte("yo"))
@@ -109,7 +109,7 @@ func TestRunner_Start(t *testing.T) {
 	t.Run("does not panic if job panics", func(t *testing.T) {
 		q, r := newRunner(t)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 
 		r.Register("test", func(ctx context.Context, m []byte) error {
 			cancel()
@@ -126,7 +126,7 @@ func TestRunner_Start(t *testing.T) {
 		q, r := newRunner(t)
 
 		var runCount int
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		r.Register("test", func(ctx context.Context, m []byte) error {
 			runCount++
 			// This is more than the default timeout, so it should extend
@@ -150,7 +150,7 @@ func TestCreateTx(t *testing.T) {
 		r := jobs.NewRunner(jobs.NewRunnerOpts{Log: internaltesting.NewLogger(t), Queue: q})
 
 		var ran bool
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		r.Register("test", func(ctx context.Context, m []byte) error {
 			ran = true
 			is.Equal(t, "yo", string(m))
