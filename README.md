@@ -8,6 +8,8 @@
 
 goqite (pronounced Go-queue-ite) is a persistent message queue Go library built on SQLite and inspired by AWS SQS (but much simpler).
 
+Also supports Postgres!
+
 ```shell
 go get maragu.dev/goqite
 ```
@@ -18,13 +20,13 @@ Made with ✨sparkles✨ by [maragu](https://www.maragu.dev/): independent softw
 
 ## Features
 
-- Messages are persisted in a SQLite table.
+- Messages are persisted in a single database table.
 - Messages are sent to and received from the queue, and are guaranteed to not be redelivered before a timeout occurs.
 - Support for multiple queues in one table.
 - Message timeouts can be extended, to support e.g. long-running tasks.
 - A job runner abstraction is provided on top of the queue, for your background tasks.
 - A simple HTTP handler is provided for your convenience.
-- No non-test dependencies. Bring your own SQLite driver.
+- No non-test dependencies. Bring your own SQL driver.
 
 ## Examples
 
@@ -190,6 +192,81 @@ func main() {
 	r.Start(ctx)
 }
 ```
+
+## Using PostgreSQL
+
+To use goqite with PostgreSQL instead of SQLite:
+
+```go
+import _ "github.com/jackc/pgx/v5/stdlib"
+
+// Create the queue with PostgreSQL flavor
+q := goqite.New(goqite.NewOpts{
+	DB:        db,  // *sql.DB connected to PostgreSQL
+	Name:      "jobs",
+	SQLFlavor: goqite.SQLFlavorPostgreSQL,
+})
+```
+
+Make sure to use the PostgreSQL schema provided below when setting up your database.
+
+## Schemas
+
+<details>
+	<summary>SQLite</summary>
+
+```sql
+create table goqite (
+  id text primary key default ('m_' || lower(hex(randomblob(16)))),
+  created text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
+  updated text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
+  queue text not null,
+  body blob not null,
+  timeout text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
+  received integer not null default 0
+) strict;
+
+create trigger goqite_updated_timestamp after update on goqite begin
+  update goqite set updated = strftime('%Y-%m-%dT%H:%M:%fZ') where id = old.id;
+end;
+
+create index goqite_queue_created_idx on goqite (queue, created);
+```
+
+</details>
+
+<details>
+	<summary>PostgreSQL</summary>
+
+```sql
+create extension if not exists pgcrypto;
+
+create function update_timestamp()
+returns trigger as $$
+begin
+   new.updated = now();
+   return new;
+end;
+$$ language plpgsql;
+
+create table goqite (
+  id text primary key default ('m_' || encode(gen_random_bytes(16), 'hex')),
+  created timestamptz not null default now(),
+  updated timestamptz not null default now(),
+  queue text not null,
+  body bytea not null,
+  timeout timestamptz not null default now(),
+  received integer not null default 0
+);
+
+create trigger goqite_updated_timestamp
+before update on goqite
+for each row execute procedure update_timestamp();
+
+create index goqite_queue_created_idx on goqite (queue, created);
+```
+
+</details>
 
 ## Benchmarks
 

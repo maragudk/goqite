@@ -4,7 +4,7 @@ benchmark:
 
 .PHONY: cover
 cover:
-	go tool cover -html=cover.out
+	go tool cover -html cover.out
 
 .PHONY: lint
 lint:
@@ -12,4 +12,12 @@ lint:
 
 .PHONY: test
 test:
-	go test -coverprofile=cover.out -shuffle on ./...
+	go test -coverprofile cover.out -shuffle on ./...
+
+.PHONY: test-down
+test-down:
+		docker compose down
+
+.PHONY: test-up
+test-up:
+	docker compose up -d
