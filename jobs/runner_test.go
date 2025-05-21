@@ -145,8 +145,8 @@ func TestRunner_Start(t *testing.T) {
 
 func TestCreateTx(t *testing.T) {
 	t.Run("can create a job inside a transaction", func(t *testing.T) {
-		db := internaltesting.NewDB(t, ":memory:")
-		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db}, ":memory:")
+		db := internaltesting.NewSQLiteDB(t)
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db})
 		r := jobs.NewRunner(jobs.NewRunnerOpts{Log: internaltesting.NewLogger(t), Queue: q})
 
 		var ran bool
@@ -158,7 +158,7 @@ func TestCreateTx(t *testing.T) {
 			return nil
 		})
 
-		err := internalsql.InTx(db, func(tx *sql.Tx) error {
+		err := internalsql.InTx(ctx, db, func(tx *sql.Tx) error {
 			return jobs.CreateTx(ctx, tx, q, "test", []byte("yo"))
 		})
 		is.NotError(t, err)
@@ -229,7 +229,7 @@ func ExampleRunner_Start() {
 func newRunner(t *testing.T) (*goqite.Queue, *jobs.Runner) {
 	t.Helper()
 
-	q := internaltesting.NewQ(t, goqite.NewOpts{Timeout: 100 * time.Millisecond}, ":memory:")
+	q := internaltesting.NewQ(t, goqite.NewOpts{DB: internaltesting.NewSQLiteDB(t), Timeout: 100 * time.Millisecond})
 	r := jobs.NewRunner(jobs.NewRunnerOpts{Limit: 10, Log: internaltesting.NewLogger(t), Queue: q, Extend: 100 * time.Millisecond})
 	return q, r
 }

@@ -279,6 +279,7 @@ func newRequest(t testing.TB, h http.HandlerFunc, method string, m *goqite.Messa
 func newH(t testing.TB, opts goqite.NewOpts) http.HandlerFunc {
 	t.Helper()
 
-	q := internaltesting.NewQ(t, opts, ":memory:")
+	opts.DB = internaltesting.NewSQLiteDB(t)
+	q := internaltesting.NewQ(t, opts)
 	return qhttp.NewHandler(q)
 }

@@ -6,7 +6,6 @@ import (
 	_ "embed"
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -14,14 +13,15 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"maragu.dev/goqite"
+	internaltesting "maragu.dev/goqite/internal/testing"
 )
 
 //go:embed schema_sqlite.sql
 var schema string
 
 func TestQueue(t *testing.T) {
-	t.Run("can send and receive and delete a message", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
+	internaltesting.Run(t, "can send and receive and delete a message", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Timeout: time.Millisecond})
 
 		m, err := q.Receive(context.Background())
 		is.NotError(t, err)
@@ -89,8 +89,8 @@ func TestQueue_New(t *testing.T) {
 }
 
 func TestQueue_Send(t *testing.T) {
-	t.Run("panics if delay is negative", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{}, ":memory:")
+	internaltesting.Run(t, "panics if delay is negative", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db})
 
 		var err error
 		defer func() {
@@ -104,8 +104,8 @@ func TestQueue_Send(t *testing.T) {
 }
 
 func TestQueue_Receive(t *testing.T) {
-	t.Run("does not receive a delayed message immediately", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{}, ":memory:")
+	internaltesting.Run(t, "does not receive a delayed message immediately", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db})
 
 		m := &goqite.Message{
 			Body:  []byte("yo"),
@@ -127,8 +127,8 @@ func TestQueue_Receive(t *testing.T) {
 		is.Equal(t, "yo", string(m.Body))
 	})
 
-	t.Run("does not receive a message twice in a row", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{}, ":memory:")
+	internaltesting.Run(t, "does not receive a message twice in a row", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db})
 
 		m := &goqite.Message{
 			Body: []byte("yo"),
@@ -147,8 +147,8 @@ func TestQueue_Receive(t *testing.T) {
 		is.Nil(t, m)
 	})
 
-	t.Run("does receive a message up to two times if set and timeout has passed", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond, MaxReceive: 2}, ":memory:")
+	internaltesting.Run(t, "does receive a message up to two times if set and timeout has passed", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Timeout: time.Millisecond, MaxReceive: 2})
 
 		m := &goqite.Message{
 			Body: []byte("yo"),
@@ -176,9 +176,9 @@ func TestQueue_Receive(t *testing.T) {
 		is.Nil(t, m)
 	})
 
-	t.Run("does not receive a message from a different queue", func(t *testing.T) {
-		q1 := newQ(t, goqite.NewOpts{}, "test.db")
-		q2 := newQ(t, goqite.NewOpts{Name: "q2"}, "test.db")
+	internaltesting.Run(t, "does not receive a message from a different queue", func(t *testing.T, db *sql.DB) {
+		q1 := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Name: "q1"})
+		q2 := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Name: "q2"})
 
 		err := q1.Send(context.Background(), goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
@@ -190,8 +190,8 @@ func TestQueue_Receive(t *testing.T) {
 }
 
 func TestQueue_SendAndGetID(t *testing.T) {
-	t.Run("returns the message ID", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{}, ":memory:")
+	internaltesting.Run(t, "returns the message ID", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db})
 
 		m := goqite.Message{
 			Body: []byte("yo"),
@@ -207,8 +207,8 @@ func TestQueue_SendAndGetID(t *testing.T) {
 }
 
 func TestQueue_Extend(t *testing.T) {
-	t.Run("does not receive a message that has had the timeout extended", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
+	internaltesting.Run(t, "does not receive a message that has had the timeout extended", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Timeout: time.Millisecond})
 
 		m := &goqite.Message{
 			Body: []byte("yo"),
@@ -231,8 +231,8 @@ func TestQueue_Extend(t *testing.T) {
 		is.Nil(t, m)
 	})
 
-	t.Run("panics if delay is negative", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{}, ":memory:")
+	internaltesting.Run(t, "panics if delay is negative", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db})
 
 		var err error
 		defer func() {
@@ -257,8 +257,8 @@ func TestQueue_Extend(t *testing.T) {
 }
 
 func TestQueue_ReceiveAndWait(t *testing.T) {
-	t.Run("waits for a message until the context is cancelled", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
+	internaltesting.Run(t, "waits for a message until the context is cancelled", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Timeout: time.Millisecond})
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 		defer cancel()
@@ -268,8 +268,8 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 		is.Nil(t, m)
 	})
 
-	t.Run("gets a message immediately if there is one", func(t *testing.T) {
-		q := newQ(t, goqite.NewOpts{Timeout: time.Millisecond}, ":memory:")
+	internaltesting.Run(t, "gets a message immediately if there is one", func(t *testing.T, db *sql.DB) {
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db, Timeout: time.Millisecond})
 
 		err := q.Send(context.Background(), goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
@@ -283,7 +283,7 @@ func TestQueue_ReceiveAndWait(t *testing.T) {
 
 func BenchmarkQueue(b *testing.B) {
 	b.Run("send, receive, delete", func(b *testing.B) {
-		q := newQ(b, goqite.NewOpts{}, "bench.db")
+		q := internaltesting.NewQ(b, goqite.NewOpts{})
 
 		b.ResetTimer()
 
@@ -324,16 +324,16 @@ func BenchmarkQueue(b *testing.B) {
 					b.SkipNow()
 				}
 
-				db := newDB(b, "bench.db")
+				db := internaltesting.NewSQLiteDB(b)
 				_, err := db.Exec(index.query)
 				is.NotError(b, err)
 
 				var queues []*goqite.Queue
-				for i := 0; i < 10; i++ {
-					queues = append(queues, newQ(b, goqite.NewOpts{Name: fmt.Sprintf("q%v", i)}, "bench.db"))
+				for i := range 10 {
+					queues = append(queues, internaltesting.NewQ(b, goqite.NewOpts{Name: fmt.Sprintf("q%v", i)}))
 				}
 
-				for i := 0; i < 100_000; i++ {
+				for range 100_000 {
 					q := queues[rand.Intn(len(queues))]
 					err := q.Send(context.Background(), goqite.Message{
 						Body: []byte("yo"),
@@ -357,52 +357,4 @@ func BenchmarkQueue(b *testing.B) {
 			})
 		}
 	})
-}
-
-func newDB(t testing.TB, path string) *sql.DB {
-	t.Helper()
-
-	// Check if file exists already
-	exists := false
-	if _, err := os.Stat(path); err == nil {
-		exists = true
-	}
-
-	if path != ":memory:" && !exists {
-		t.Cleanup(func() {
-			for _, p := range []string{path, path + "-shm", path + "-wal"} {
-				if err := os.Remove(p); err != nil {
-					t.Fatal(err)
-				}
-			}
-		})
-	}
-
-	db, err := sql.Open("sqlite3", path+"?_journal=WAL&_timeout=5000&_fk=true")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-
-	if !exists {
-		_, err = db.Exec(schema)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	return db
-}
-
-func newQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
-	t.Helper()
-
-	opts.DB = newDB(t, path)
-
-	if opts.Name == "" {
-		opts.Name = "test"
-	}
-
-	return goqite.New(opts)
 }

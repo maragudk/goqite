@@ -7,9 +7,17 @@ import (
 	"database/sql"
 	_ "embed"
 	"errors"
+	"fmt"
 	"time"
 
 	internalsql "maragu.dev/goqite/internal/sql"
+)
+
+type SQLFlavor int
+
+const (
+	SQLFlavorSQLite SQLFlavor = iota
+	SQLFlavorPostgreSQL
 )
 
 // rfc3339Milli is like time.RFC3339Nano, but with millisecond precision, and fractional seconds do not have trailing
@@ -20,6 +28,7 @@ type NewOpts struct {
 	DB         *sql.DB
 	MaxReceive int // Max receive count for messages before they cannot be received anymore.
 	Name       string
+	SQLFlavor  SQLFlavor
 	Timeout    time.Duration // Default timeout for messages before they can be re-received.
 }
 
@@ -53,6 +62,10 @@ func New(opts NewOpts) *Queue {
 		opts.Timeout = 5 * time.Second
 	}
 
+	if opts.SQLFlavor < SQLFlavorSQLite || opts.SQLFlavor > SQLFlavorPostgreSQL {
+		panic("unsupported SQL flavor " + fmt.Sprint(opts.SQLFlavor))
+	}
+
 	return &Queue{
 		db:         opts.DB,
 		name:       opts.Name,
@@ -78,7 +91,7 @@ type Message struct {
 
 // Send a Message to the queue with an optional delay.
 func (q *Queue) Send(ctx context.Context, m Message) error {
-	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
+	return internalsql.InTx(ctx, q.db, func(tx *sql.Tx) error {
 		return q.SendTx(ctx, tx, m)
 	})
 }
@@ -93,7 +106,7 @@ func (q *Queue) SendTx(ctx context.Context, tx *sql.Tx, m Message) error {
 // to interact with the message without receiving it first.
 func (q *Queue) SendAndGetID(ctx context.Context, m Message) (ID, error) {
 	var id ID
-	err := internalsql.InTx(q.db, func(tx *sql.Tx) error {
+	err := internalsql.InTx(ctx, q.db, func(tx *sql.Tx) error {
 		var err error
 		id, err = q.SendAndGetIDTx(ctx, tx, m)
 		return err
@@ -120,7 +133,7 @@ func (q *Queue) SendAndGetIDTx(ctx context.Context, tx *sql.Tx, m Message) (ID, 
 // Receive a Message from the queue, or nil if there is none.
 func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 	var m *Message
-	err := internalsql.InTx(q.db, func(tx *sql.Tx) error {
+	err := internalsql.InTx(ctx, q.db, func(tx *sql.Tx) error {
 		var err error
 		m, err = q.ReceiveTx(ctx, tx)
 		return err
@@ -184,7 +197,7 @@ func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Me
 
 // Extend a Message timeout by the given delay from now.
 func (q *Queue) Extend(ctx context.Context, id ID, delay time.Duration) error {
-	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
+	return internalsql.InTx(ctx, q.db, func(tx *sql.Tx) error {
 		return q.ExtendTx(ctx, tx, id, delay)
 	})
 }
@@ -203,7 +216,7 @@ func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Dura
 
 // Delete a Message from the queue by id.
 func (q *Queue) Delete(ctx context.Context, id ID) error {
-	return internalsql.InTx(q.db, func(tx *sql.Tx) error {
+	return internalsql.InTx(ctx, q.db, func(tx *sql.Tx) error {
 		return q.DeleteTx(ctx, tx, id)
 	})
 }

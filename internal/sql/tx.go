@@ -1,12 +1,13 @@
 package sql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 )
 
-func InTx(db *sql.DB, cb func(*sql.Tx) error) (err error) {
-	tx, txErr := db.Begin()
+func InTx(ctx context.Context, db *sql.DB, cb func(*sql.Tx) error) (err error) {
+	tx, txErr := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if txErr != nil {
 		return fmt.Errorf("cannot start tx: %w", txErr)
 	}

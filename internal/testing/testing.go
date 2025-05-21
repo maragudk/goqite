@@ -4,59 +4,31 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"os"
 	"testing"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/mattn/go-sqlite3"
 
 	"maragu.dev/goqite"
 )
 
-//go:embed schema_sqlite.sql
-var schema string
-
-func NewDB(t testing.TB, path string) *sql.DB {
-	t.Helper()
-
-	// Check if file exists already
-	exists := false
-	if _, err := os.Stat(path); err == nil {
-		exists = true
-	}
-
-	if path != ":memory:" && !exists {
-		t.Cleanup(func() {
-			for _, p := range []string{path, path + "-shm", path + "-wal"} {
-				if err := os.Remove(p); err != nil {
-					t.Fatal(err)
-				}
-			}
+func Run(t *testing.T, name string, f func(t *testing.T, db *sql.DB)) {
+	t.Run(name, func(t *testing.T) {
+		t.Run("sqlite", func(t *testing.T) {
+			db := NewSQLiteDB(t)
+			f(t, db)
 		})
-	}
 
-	db, err := sql.Open("sqlite3", path+"?_journal=WAL&_timeout=5000&_fk=true")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-
-	if !exists {
-		_, err = db.Exec(schema)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	return db
+		t.Run("postgresql", func(t *testing.T) {
+			t.SkipNow()
+			db := NewPostgreSQLDB(t)
+			f(t, db)
+		})
+	})
 }
 
-func NewQ(t testing.TB, opts goqite.NewOpts, path string) *goqite.Queue {
+func NewQ(t testing.TB, opts goqite.NewOpts) *goqite.Queue {
 	t.Helper()
-
-	if opts.DB == nil {
-		opts.DB = NewDB(t, path)
-	}
 
 	if opts.Name == "" {
 		opts.Name = "test"
