@@ -193,6 +193,23 @@ func main() {
 }
 ```
 
+## Using PostgreSQL
+
+To use goqite with PostgreSQL instead of SQLite:
+
+```go
+import _ "github.com/jackc/pgx/v5/stdlib"
+
+// Create the queue with PostgreSQL flavor
+q := goqite.New(goqite.NewOpts{
+	DB:        db,  // *sql.DB connected to PostgreSQL
+	Name:      "jobs",
+	SQLFlavor: goqite.SQLFlavorPostgreSQL,
+})
+```
+
+Make sure to use the PostgreSQL schema provided below when setting up your database.
+
 ## Schemas
 
 <details>
