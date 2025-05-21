@@ -3,11 +3,12 @@ package testing
 import (
 	"database/sql"
 	_ "embed"
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+
+	internalsql "maragu.dev/goqite/internal/sql"
 )
 
 //go:embed schema_sqlite.sql
@@ -25,10 +26,25 @@ func NewSQLiteDB(t testing.TB) *sql.DB {
 		t.Fatal(err)
 	}
 
-	if _, err := db.ExecContext(t.Context(), `select * from goqite`); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		if _, err = db.Exec(sqliteSchema); err != nil {
-			t.Fatal(err)
+	err = internalsql.InTx(t.Context(), db, func(tx *sql.Tx) error {
+		var exists bool
+		query := `select exists (select 1 from sqlite_master where type = 'table' and name = 'goqite')`
+		if err := tx.QueryRowContext(t.Context(), query).Scan(&exists); err != nil {
+			return err
 		}
+
+		if exists {
+			return nil
+		}
+
+		if _, err := tx.ExecContext(t.Context(), sqliteSchema); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	return db
