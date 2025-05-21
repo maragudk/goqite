@@ -80,6 +80,25 @@ func TestQueue_New(t *testing.T) {
 
 		goqite.New(goqite.NewOpts{DB: &sql.DB{}, Name: "test", Timeout: -1})
 	})
+
+	t.Run("panics if SQL flavor is too high", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			is.Equal(t, "unsupported SQL flavor 2", r)
+		}()
+
+		// Using 2 as an invalid SQLFlavor value (should be 0 or 1)
+		goqite.New(goqite.NewOpts{DB: &sql.DB{}, Name: "test", SQLFlavor: 2})
+	})
+	
+	t.Run("panics if SQL flavor is negative", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			is.Equal(t, "unsupported SQL flavor -1", r)
+		}()
+
+		goqite.New(goqite.NewOpts{DB: &sql.DB{}, Name: "test", SQLFlavor: -1})
+	})
 }
 
 func TestQueue_Send(t *testing.T) {
