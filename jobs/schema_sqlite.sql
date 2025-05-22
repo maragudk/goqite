@@ -5,11 +5,12 @@ create table goqite (
   queue text not null,
   body blob not null,
   timeout text not null default (strftime('%Y-%m-%dT%H:%M:%fZ')),
-  received integer not null default 0
+  received integer not null default 0,
+  priority integer not null default 0
 ) strict;
 
 create trigger goqite_updated_timestamp after update on goqite begin
   update goqite set updated = strftime('%Y-%m-%dT%H:%M:%fZ') where id = old.id;
 end;
 
-create index goqite_queue_created_idx on goqite (queue, created);
+create index goqite_queue_priority_created_idx on goqite (queue, priority desc, created);

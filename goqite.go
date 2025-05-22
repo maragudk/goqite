@@ -86,9 +86,10 @@ type Queue struct {
 type ID string
 
 type Message struct {
-	ID    ID
-	Delay time.Duration
-	Body  []byte
+	Body     []byte
+	Delay    time.Duration
+	ID       ID
+	Priority int // Higher priority messages are received first
 }
 
 // Send a Message to the queue with an optional delay.
@@ -127,14 +128,14 @@ func (q *Queue) SendAndGetIDTx(ctx context.Context, tx *sql.Tx, m Message) (ID, 
 	var id ID
 	switch q.flavor {
 	case SQLFlavorSQLite:
-		query := `insert into goqite (queue, body, timeout) values (?, ?, ?) returning id`
-		if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout.Format(rfc3339Milli)).Scan(&id); err != nil {
+		query := `insert into goqite (queue, body, timeout, priority) values (?, ?, ?, ?) returning id`
+		if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout.Format(rfc3339Milli), m.Priority).Scan(&id); err != nil {
 			return "", err
 		}
 
 	case SQLFlavorPostgreSQL:
-		query := `insert into goqite (queue, body, timeout) values ($1, $2, $3) returning id`
-		if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout).Scan(&id); err != nil {
+		query := `insert into goqite (queue, body, timeout, priority) values ($1, $2, $3, $4) returning id`
+		if err := tx.QueryRowContext(ctx, query, q.name, m.Body, timeout, m.Priority).Scan(&id); err != nil {
 			return "", err
 		}
 	}
@@ -173,7 +174,7 @@ func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 					queue = ? and
 					? >= timeout and
 					received < ?
-				order by created
+				order by priority desc, created
 				limit 1
 			)
 			returning id, body`
@@ -197,7 +198,7 @@ func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 					queue = $2 and
 					$3 >= timeout and
 					received < $4
-				order by created
+				order by priority desc, created
 				limit 1
 			)
 			returning id, body`

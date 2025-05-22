@@ -15,11 +15,12 @@ create table goqite (
   queue text not null,
   body bytea not null,
   timeout timestamptz not null default now(),
-  received integer not null default 0
+  received integer not null default 0,
+  priority integer not null default 0
 );
 
 create trigger goqite_updated_timestamp
 before update on goqite
 for each row execute procedure update_timestamp();
 
-create index goqite_queue_created_idx on goqite (queue, created);
+create index goqite_queue_priority_created_idx on goqite (queue, priority desc, created);
