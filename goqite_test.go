@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maragudk/is"
 	_ "github.com/mattn/go-sqlite3"
+	"maragu.dev/is"
 
 	"maragu.dev/goqite"
 	internaltesting "maragu.dev/goqite/internal/testing"
