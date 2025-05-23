@@ -86,9 +86,9 @@ type Queue struct {
 type ID string
 
 type Message struct {
+	ID       ID
 	Body     []byte
 	Delay    time.Duration
-	ID       ID
 	Priority int // Higher priority messages are received first
 }
 
