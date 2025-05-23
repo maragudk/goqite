@@ -209,21 +209,21 @@ func (r *Runner) Register(name string, job Func) {
 }
 
 // Create a message for the named job in the given queue.
-func Create(ctx context.Context, q *goqite.Queue, name string, m []byte) error {
+func Create(ctx context.Context, q *goqite.Queue, name string, m goqite.Message) (goqite.ID, error) {
 	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m}); err != nil {
-		return err
+	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m.Body}); err != nil {
+		return "", err
 	}
-	return q.Send(ctx, goqite.Message{Body: buf.Bytes()})
+	return q.SendAndGetID(ctx, goqite.Message{Body: buf.Bytes(), Delay: m.Delay, Priority: m.Priority})
 }
 
 // CreateTx is like Create, but within an existing transaction.
-func CreateTx(ctx context.Context, tx *sql.Tx, q *goqite.Queue, name string, m []byte) error {
+func CreateTx(ctx context.Context, tx *sql.Tx, q *goqite.Queue, name string, m goqite.Message) (goqite.ID, error) {
 	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m}); err != nil {
-		return err
+	if err := gob.NewEncoder(&buf).Encode(message{Name: name, Message: m.Body}); err != nil {
+		return "", err
 	}
-	return q.SendTx(ctx, tx, goqite.Message{Body: buf.Bytes()})
+	return q.SendAndGetIDTx(ctx, tx, goqite.Message{Body: buf.Bytes(), Delay: m.Delay, Priority: m.Priority})
 }
 
 // logger matches the info level method from the slog.Logger.

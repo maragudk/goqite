@@ -57,7 +57,7 @@ func TestRunner_Start(t *testing.T) {
 			return nil
 		})
 
-		err := jobs.Create(ctx, q, "test", []byte("yo"))
+		_, err := jobs.Create(ctx, q, "test", goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
 		r.Start(ctx)
@@ -79,7 +79,7 @@ func TestRunner_Start(t *testing.T) {
 			return nil
 		})
 
-		err := jobs.Create(ctx, q, "different-test", []byte("yo"))
+		_, err := jobs.Create(ctx, q, "different-test", goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
 		r.Start(ctx)
@@ -93,7 +93,7 @@ func TestRunner_Start(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
-		err := jobs.Create(ctx, q, "test", []byte("yo"))
+		_, err := jobs.Create(ctx, q, "test", goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
 		defer func() {
@@ -116,7 +116,7 @@ func TestRunner_Start(t *testing.T) {
 			panic("test panic")
 		})
 
-		err := jobs.Create(ctx, q, "test", []byte("yo"))
+		_, err := jobs.Create(ctx, q, "test", goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
 		r.Start(ctx)
@@ -135,11 +135,41 @@ func TestRunner_Start(t *testing.T) {
 			return nil
 		})
 
-		err := jobs.Create(ctx, q, "test", []byte("yo"))
+		_, err := jobs.Create(ctx, q, "test", goqite.Message{Body: []byte("yo")})
 		is.NotError(t, err)
 
 		r.Start(ctx)
 		is.Equal(t, 1, runCount)
+	})
+
+	t.Run("processes jobs with higher priority first", func(t *testing.T) {
+		q, r := newRunner(t)
+
+		var order []string
+		ctx, cancel := context.WithCancel(t.Context())
+		r.Register("test", func(ctx context.Context, m []byte) error {
+			order = append(order, string(m))
+			if len(order) == 3 {
+				cancel()
+			}
+			return nil
+		})
+
+		// Create jobs with different priorities
+		_, err := jobs.Create(ctx, q, "test", goqite.Message{Body: []byte("low"), Priority: 0})
+		is.NotError(t, err)
+		_, err = jobs.Create(ctx, q, "test", goqite.Message{Body: []byte("high"), Priority: 10})
+		is.NotError(t, err)
+		_, err = jobs.Create(ctx, q, "test", goqite.Message{Body: []byte("medium"), Priority: 5})
+		is.NotError(t, err)
+
+		r.Start(ctx)
+		
+		// Jobs should be processed in priority order: high (10), medium (5), low (0)
+		is.Equal(t, 3, len(order))
+		is.Equal(t, "high", order[0])
+		is.Equal(t, "medium", order[1])
+		is.Equal(t, "low", order[2])
 	})
 }
 
@@ -159,7 +189,8 @@ func TestCreateTx(t *testing.T) {
 		})
 
 		err := internalsql.InTx(ctx, db, func(tx *sql.Tx) error {
-			return jobs.CreateTx(ctx, tx, q, "test", []byte("yo"))
+			_, err := jobs.CreateTx(ctx, tx, q, "test", goqite.Message{Body: []byte("yo")})
+			return err
 		})
 		is.NotError(t, err)
 
@@ -212,7 +243,7 @@ func ExampleRunner_Start() {
 	})
 
 	// Create a "print" job with a message.
-	if err := jobs.Create(context.Background(), q, "print", []byte("Yo")); err != nil {
+	if _, err := jobs.Create(context.Background(), q, "print", goqite.Message{Body: []byte("Yo")}); err != nil {
 		log.Info("Error creating job", "error", err)
 	}
 

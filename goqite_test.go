@@ -90,7 +90,7 @@ func TestQueue_New(t *testing.T) {
 		// Using 2 as an invalid SQLFlavor value (should be 0 or 1)
 		goqite.New(goqite.NewOpts{DB: &sql.DB{}, Name: "test", SQLFlavor: 2})
 	})
-	
+
 	t.Run("panics if SQL flavor is negative", func(t *testing.T) {
 		defer func() {
 			r := recover()
@@ -186,6 +186,36 @@ func TestQueue_Receive(t *testing.T) {
 		m, err = q.Receive(t.Context())
 		is.NotError(t, err)
 		is.Nil(t, m)
+	})
+
+	internaltesting.Run(t, "can receive messages with higher priorities first", time.Millisecond, func(t *testing.T, db *sql.DB, q *goqite.Queue) {
+		err := q.Send(t.Context(), goqite.Message{
+			Body:     []byte("low priority"),
+			Priority: 1,
+		})
+		is.NotError(t, err)
+
+		err = q.Send(t.Context(), goqite.Message{
+			Body:     []byte("high priority"),
+			Priority: 10,
+		})
+		is.NotError(t, err)
+
+		m, err := q.Receive(t.Context())
+		is.NotError(t, err)
+		is.NotNil(t, m)
+		is.Equal(t, "high priority", string(m.Body))
+
+		err = q.Delete(t.Context(), m.ID)
+		is.NotError(t, err)
+
+		m, err = q.Receive(t.Context())
+		is.NotError(t, err)
+		is.NotNil(t, m)
+		is.Equal(t, "low priority", string(m.Body))
+
+		err = q.Delete(t.Context(), m.ID)
+		is.NotError(t, err)
 	})
 
 	t.Run("does not receive a message from a different queue", func(t *testing.T) {
