@@ -123,7 +123,7 @@ func (q *Queue) SendAndGetIDTx(ctx context.Context, tx *sql.Tx, m Message) (ID, 
 		panic("delay cannot be negative")
 	}
 
-	timeout := time.Now().Add(m.Delay)
+	timeout := time.Now().UTC().Add(m.Delay)
 
 	var id ID
 	switch q.flavor {
@@ -156,7 +156,7 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 
 // ReceiveTx is like Receive, but within an existing transaction.
 func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	timeout := now.Add(q.timeout)
 
 	var m Message
@@ -249,7 +249,7 @@ func (q *Queue) ExtendTx(ctx context.Context, tx *sql.Tx, id ID, delay time.Dura
 		panic("delay cannot be negative")
 	}
 
-	timeout := time.Now().Add(delay)
+	timeout := time.Now().UTC().Add(delay)
 
 	var err error
 	switch q.flavor {
