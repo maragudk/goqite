@@ -217,7 +217,6 @@ func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 // ReceiveAndWait for a Message from the queue, polling at the given interval, until the context is cancelled.
 // If the context is cancelled, the error will be non-nil. See [context.Context.Err].
 func (q *Queue) ReceiveAndWait(ctx context.Context, interval time.Duration) (*Message, error) {
-
 	m, err := q.Receive(context.WithoutCancel(ctx))
 	if err != nil {
 		return nil, err
