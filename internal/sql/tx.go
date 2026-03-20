@@ -16,8 +16,12 @@ const maxRetries = 3
 const retryBackoff = 10 * time.Millisecond
 
 func InTx(ctx context.Context, db *sql.DB, cb func(*sql.Tx) error) (err error) {
+	return InTxWithIsolation(ctx, db, sql.LevelSerializable, cb)
+}
+
+func InTxWithIsolation(ctx context.Context, db *sql.DB, isolation sql.IsolationLevel, cb func(*sql.Tx) error) (err error) {
 	for i := range maxRetries {
-		err = inTx(ctx, db, cb)
+		err = inTx(ctx, db, isolation, cb)
 		if !isSerializationError(err) {
 			return err
 		}
@@ -40,8 +44,8 @@ func InTx(ctx context.Context, db *sql.DB, cb func(*sql.Tx) error) (err error) {
 	return err
 }
 
-func inTx(ctx context.Context, db *sql.DB, cb func(*sql.Tx) error) (err error) {
-	tx, txErr := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+func inTx(ctx context.Context, db *sql.DB, isolation sql.IsolationLevel, cb func(*sql.Tx) error) (err error) {
+	tx, txErr := db.BeginTx(ctx, &sql.TxOptions{Isolation: isolation})
 	if txErr != nil {
 		return fmt.Errorf("cannot start tx: %w", txErr)
 	}
