@@ -188,19 +188,21 @@ func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 
 	case SQLFlavorPostgreSQL:
 		query := `
-			update goqite
-			set
-				timeout = $1,
-				received = received + 1
-			where id = (
+			with next as (
 				select id from goqite
 				where
 					queue = $2 and
 					$3 >= timeout and
 					received < $4
 				order by priority desc, created
+				for update skip locked
 				limit 1
 			)
+			update goqite
+			set
+				timeout = $1,
+				received = received + 1
+			where id in (select id from next)
 			returning id, body`
 
 		if err := tx.QueryRowContext(ctx, query, timeout, q.name, now, q.maxReceive).Scan(&m.ID, &m.Body); err != nil {
