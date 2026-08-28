@@ -218,6 +218,49 @@ func TestQueue_Receive(t *testing.T) {
 		is.NotError(t, err)
 	})
 
+	t.Run("postgresql skips a message locked by another transaction and receives the next one", func(t *testing.T) {
+		db := internaltesting.NewPostgreSQLDB(t)
+		q := internaltesting.NewQ(t, goqite.NewOpts{DB: db, SQLFlavor: goqite.SQLFlavorPostgreSQL})
+
+		// The higher priority puts the first message at the head of the queue.
+		id, err := q.SendAndGetID(t.Context(), goqite.Message{Body: []byte("held hostage"), Priority: 1})
+		is.NotError(t, err)
+
+		err = q.Send(t.Context(), goqite.Message{Body: []byte("free to go")})
+		is.NotError(t, err)
+
+		// Lock the head message from another connection, and never commit.
+		tx, err := db.BeginTx(t.Context(), nil)
+		is.NotError(t, err)
+		// Rolled back below, so this only matters if an assertion above it fails.
+		defer func() {
+			_ = tx.Rollback()
+		}()
+
+		var lockedID goqite.ID
+		err = tx.QueryRowContext(t.Context(), `select id from goqite where id = $1 for update`, id).Scan(&lockedID)
+		is.NotError(t, err)
+		is.Equal(t, id, lockedID)
+
+		// Without "for update skip locked", Receive blocks on the held lock and only fails once this
+		// deadline passes, so the deadline is what separates red from green here.
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+		defer cancel()
+
+		m, err := q.Receive(ctx)
+		is.NotError(t, err)
+		is.NotNil(t, m)
+		is.Equal(t, "free to go", string(m.Body))
+
+		// The locked message is skipped, not lost: it is receivable again once the lock goes away.
+		is.NotError(t, tx.Rollback())
+
+		m, err = q.Receive(t.Context())
+		is.NotError(t, err)
+		is.NotNil(t, m)
+		is.Equal(t, "held hostage", string(m.Body))
+	})
+
 	t.Run("does not receive a message from a different queue", func(t *testing.T) {
 		tests := []struct {
 			name   string
