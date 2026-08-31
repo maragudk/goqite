@@ -349,3 +349,52 @@ That `/goqite_internal_test.go` is the only file in `package goqite` under test,
 ### Future work
 
 Unchanged. The Step 2 text is left as written, with this step as its correction.
+
+## Step 6: Markus's PR review
+
+**Author:** builder-pg-contention
+
+### Prompt Context
+
+**Verbatim prompt:** "Markus reviewed PR #84; three agreed changes to apply in one batch […] 1. goqite.go ReceiveTx doc comment: delete both lines we added […] It goes back to exactly "// ReceiveTx is like Receive, but within an existing transaction." 2. goqite.go Priority field comment, Markus's wording verbatim […] 3. goqite_internal_test.go: inside the inTx callback, also query `show default_transaction_isolation` and assert it returns "serializable" […] Product guidance from Markus to carry forward: SQLite is the primary audience — keep Postgres-specific detail out of general doc comments; it belongs in the README's Postgres section or nowhere."
+
+**Interpretation:** Pull the Postgres prose back out of the general doc comments, take Markus's `Priority` wording exactly as written, and strengthen the isolation test's premise.
+**Inferred intent:** Keep the public API's documentation aimed at the SQLite majority, and make the new test prove its own setup rather than assume it.
+
+### What I did
+
+Reverted the `ReceiveTx` doc comment to its original single line, replaced the `Priority` comment with Markus's wording verbatim, and added a second query inside the `inTx` callback in `/goqite_internal_test.go` asserting `show default_transaction_isolation` returns `serializable`.
+
+### Why
+
+The third change is the one that earns its place. The test raises the connection's default and then asserts the transaction reports read committed, but nothing proved the raised default actually survived to that transaction — if the pool had handed over a fresh connection, or the session setting had been reset, the assertion would have passed for the wrong reason and the test would have quietly stopped guarding anything. Asserting both values makes the override visible: the default is serializable *and* the transaction is read committed, so the pin is demonstrably what separates them.
+
+### What worked
+
+Green, and both red paths still hold. Reverting the pin to nil:
+
+```
+goqite_internal_test.go:43: Expected "read committed", but got "serializable" (type string)
+```
+
+with the `serializable` session-default assertion passing in that run, which is exactly right — it confirms the setup held and the pin is what was missing. Full suite green for both flavors, `gofmt` clean, `go vet` clean, `golangci-lint run` reports `0 issues.`
+
+### What didn't work
+
+Nothing.
+
+### What I learned
+
+The guidance to keep Postgres detail out of general doc comments is a sharper rule than "don't over-document". A `Priority` comment that quietly means something different depending on flavor is worse than one that names the condition, which is why Markus's wording puts the condition in — concurrent *and not serialized* — and then says SQLite always is. The reader on the primary path gets an unqualified guarantee; the Postgres reader gets the caveat without the SQLite reader paying for it. The `ReceiveTx` lines I had added failed that test: they described Postgres locking behaviour to an audience that mostly has none.
+
+### What was tricky
+
+Nothing.
+
+### What warrants review
+
+That `ReceiveTx` is now byte-identical to what it was on main — confirmed with `git diff main -- goqite.go`, which shows no change to that line. The README carries the isolation and retry half of what the deleted lines said, in wider form. The other half, that the message row stays locked until the caller's transaction ends, is now documented nowhere; that follows from "the README's Postgres section or nowhere", but it is the one fact a reader holding a long transaction might want, so it is worth a deliberate yes or no rather than an oversight.
+
+### Future work
+
+Unchanged.

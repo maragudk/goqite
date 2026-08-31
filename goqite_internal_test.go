@@ -28,11 +28,18 @@ func TestQueue_inTx(t *testing.T) {
 
 		q := New(NewOpts{DB: db, Name: "test", SQLFlavor: SQLFlavorPostgreSQL})
 
-		var isolation string
+		var isolation, sessionDefault string
 		err = q.inTx(t.Context(), func(tx *sql.Tx) error {
-			return tx.QueryRowContext(t.Context(), `show transaction_isolation`).Scan(&isolation)
+			if err := tx.QueryRowContext(t.Context(), `show transaction_isolation`).Scan(&isolation); err != nil {
+				return err
+			}
+			return tx.QueryRowContext(t.Context(), `show default_transaction_isolation`).Scan(&sessionDefault)
 		})
 		is.NotError(t, err)
+
+		// The raised default reached this transaction, so read committed below is the pin overriding it,
+		// not the session setting having been lost along the way.
+		is.Equal(t, "serializable", sessionDefault)
 		is.Equal(t, "read committed", isolation)
 	})
 }

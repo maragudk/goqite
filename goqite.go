@@ -108,7 +108,7 @@ type Message struct {
 	ID       ID
 	Body     []byte
 	Delay    time.Duration
-	Priority int // Higher priority messages are received first, best-effort when receivers run concurrently
+	Priority int // Higher priority messages are received first, best-effort when receivers run concurrently and are not serialized (they always are in SQLite)
 }
 
 // Send a Message to the queue with an optional delay.
@@ -174,8 +174,6 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 }
 
 // ReceiveTx is like Receive, but within an existing transaction.
-// On PostgreSQL, the message row stays locked until that transaction ends, and its isolation level applies:
-// at repeatable read or serializable, concurrent receives can still fail with a serialization error to retry.
 func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 	now := time.Now().UTC()
 	timeout := now.Add(q.timeout)
