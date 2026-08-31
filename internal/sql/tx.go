@@ -6,8 +6,11 @@ import (
 	"fmt"
 )
 
-func InTx(ctx context.Context, db *sql.DB, cb func(*sql.Tx) error) (err error) {
-	tx, txErr := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+// InTx runs the callback in a transaction started with the given options, committing it if the callback returns
+// a nil error, and rolling it back otherwise.
+// The options are passed on to [database/sql.DB.BeginTx], so nil leaves the isolation level to the connection.
+func InTx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, cb func(*sql.Tx) error) (err error) {
+	tx, txErr := db.BeginTx(ctx, opts)
 	if txErr != nil {
 		return fmt.Errorf("cannot start tx: %w", txErr)
 	}

@@ -188,7 +188,7 @@ func TestCreateTx(t *testing.T) {
 			return nil
 		})
 
-		err := internalsql.InTx(ctx, db, func(tx *sql.Tx) error {
+		err := internalsql.InTx(ctx, db, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(tx *sql.Tx) error {
 			_, err := jobs.CreateTx(ctx, tx, q, "test", goqite.Message{Body: []byte("yo")})
 			return err
 		})

@@ -26,7 +26,7 @@ func NewSQLiteDB(t testing.TB) *sql.DB {
 		t.Fatal(err)
 	}
 
-	err = internalsql.InTx(t.Context(), db, func(tx *sql.Tx) error {
+	err = internalsql.InTx(t.Context(), db, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(tx *sql.Tx) error {
 		var exists bool
 		query := `select exists (select 1 from sqlite_master where type = 'table' and name = 'goqite')`
 		if err := tx.QueryRowContext(t.Context(), query).Scan(&exists); err != nil {

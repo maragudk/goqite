@@ -57,7 +57,7 @@ func migrateTemplate1(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	err := internalsql.InTx(t.Context(), db, func(tx *sql.Tx) error {
+	err := internalsql.InTx(t.Context(), db, &sql.TxOptions{Isolation: sql.LevelSerializable}, func(tx *sql.Tx) error {
 		var exists bool
 		query := `select exists (select from information_schema.tables where table_name = 'goqite')`
 		if err := tx.QueryRowContext(t.Context(), query).Scan(&exists); err != nil {
