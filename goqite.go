@@ -174,8 +174,8 @@ func (q *Queue) Receive(ctx context.Context) (*Message, error) {
 }
 
 // ReceiveTx is like Receive, but within an existing transaction.
-// On PostgreSQL, the message row stays locked until that transaction ends, and the isolation level is the
-// caller's: at serializable, concurrent receives can still fail with a serialization error to retry.
+// On PostgreSQL, the message row stays locked until that transaction ends, and its isolation level applies:
+// at repeatable read or serializable, concurrent receives can still fail with a serialization error to retry.
 func (q *Queue) ReceiveTx(ctx context.Context, tx *sql.Tx) (*Message, error) {
 	now := time.Now().UTC()
 	timeout := now.Add(q.timeout)

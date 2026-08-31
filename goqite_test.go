@@ -242,8 +242,8 @@ func TestQueue_Receive(t *testing.T) {
 		is.NotError(t, err)
 		is.Equal(t, id, lockedID)
 
-		// Without "for update skip locked", Receive blocks on the held lock and only fails once this
-		// deadline passes, so the deadline is what separates red from green here.
+		// A receiver that cannot skip the locked message blocks on it until this deadline passes and then
+		// fails, so the deadline is what separates red from green here.
 		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 		defer cancel()
 

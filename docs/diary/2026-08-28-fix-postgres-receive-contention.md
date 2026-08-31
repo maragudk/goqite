@@ -226,3 +226,47 @@ Just the one line and its comment in `/goqite.go:94-99`. The pin also makes the 
 ### Future work
 
 Unchanged from Step 2, minus the isolation question, which is now settled. The README sentence is being written separately, and its wording can now be definite: goqite pins read committed for its own transactions on PostgreSQL.
+
+## Step 4: Documentation corrections from external review
+
+**Author:** builder-pg-contention
+
+### Prompt Context
+
+**Verbatim prompt:** "Three small doc fixes from an external review (treat as extended self-review), then commit and push. No behavior changes. 1. README.md "Using PostgreSQL" paragraph + the ReceiveTx doc comment: they name only serializable as the isolation level where callers can still hit 40001, but repeatable read has the same failure mode (for update on a row updated after the snapshot also raises 40001). […] 2. ReceiveTx doc comment: phrase the contract in terms of the supplied transaction ("the transaction's isolation level applies") rather than "the caller's" […] 3. In goqite_test.go, the comment above the 2-second context […] explains red/green via internal SQL […]. Reword to observable behavior […]"
+**Interpretation:** Three prose corrections across the README, the `ReceiveTx` doc comment, and one test comment. No code changes.
+**Inferred intent:** Make the documented contract accurate and correctly scoped before the PR merges.
+
+### What I did
+
+Widened both isolation warnings from "at serializable" to "at repeatable read or serializable", in the README's "Using PostgreSQL" paragraph and on `ReceiveTx` in `/goqite.go`. Rephrased the `ReceiveTx` comment from "the isolation level is the caller's" to "its isolation level applies", where "it" is the supplied transaction. Rewrote the comment above the two-second context in `/goqite_test.go` to describe what a receiver does — blocks on the locked message until the deadline — instead of naming the SQL clause that prevents it.
+
+### Why
+
+The repeatable read point is a real correctness fix, not a wording preference: `for update` against a row updated since the transaction's snapshot raises 40001 under repeatable read exactly as it does under serializable, so naming only serializable understated where the caller needs a retry.
+
+The other two are scoping. A doc comment that says "the caller's isolation level" describes the package's importers rather than its own contract; phrasing it as the supplied transaction's level says the same thing without the package looking outward. And a test comment that explains itself through `for update skip locked` describes the fix rather than the behaviour under test, which stops being true the moment the implementation changes.
+
+### What worked
+
+All three were one-line edits. `gofmt` clean on both touched Go files, `go vet ./...` clean, full suite green for both flavors, `golangci-lint run` reports `0 issues.`
+
+### What didn't work
+
+Nothing. No behaviour changed, so no re-validation against Postgres was warranted beyond the suite.
+
+### What I learned
+
+The failure mode I measured in Step 3 on a hardened database — `could not serialize access due to concurrent update` — is precisely the one that reaches repeatable read too. That error comes from the write conflict, not from SSI's dependency tracking, and repeatable read raises it just as readily. Having seen the error text made the review point immediately recognisable rather than something to take on faith.
+
+### What was tricky
+
+Nothing.
+
+### What warrants review
+
+That the two isolation warnings now agree with each other, and that neither claims goqite retries on the caller's behalf — it does not.
+
+### Future work
+
+Unchanged.
