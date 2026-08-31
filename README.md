@@ -210,7 +210,7 @@ q := goqite.New(goqite.NewOpts{
 
 Make sure to use the PostgreSQL schema provided below when setting up your database.
 
-goqite runs its own PostgreSQL transactions at read committed isolation, and the receive query claims a message with `for update skip locked`, so concurrent receivers skip each other's rows instead of failing with serialization errors. Skipping locked rows makes priority ordering best-effort under concurrent consumers: when another consumer holds the highest-priority row, the receiver takes the next message instead. The `*Tx` methods such as `SendTx` and `ReceiveTx` run inside your own transaction, at whatever isolation level you set. At repeatable read or serializable, concurrent receives can still fail with serialization errors, and retrying them is up to you.
+goqite runs its own PostgreSQL transactions at read committed isolation, and the receive query claims a message with `for update skip locked`, so concurrent receivers skip each other's rows instead of failing with serialization errors. Skipping locked rows makes priority ordering best-effort under concurrent consumers: when another consumer holds the highest-priority row, the receiver takes the next message instead. The `*Tx` methods such as `SendTx` and `ReceiveTx` run inside your own transaction, at whatever isolation level you set. At repeatable read or serializable, concurrent receives can still fail with serialization errors, and retrying them is up to you. `ReceiveTx` also keeps the message's row locked until your transaction ends, so keep those transactions short.
 
 ## Schemas
 
