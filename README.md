@@ -274,7 +274,7 @@ create index goqite_queue_created_idx on goqite (queue, created);
 
 Just for fun, some benchmarks. 🤓
 
-On a MacBook Pro with M3 Ultra chip and SSD, sequentially sending, receiving, and deleting a message:
+On a MacBook Pro with M3 Max chip and SSD, sequentially sending, receiving, and deleting a message:
 
 ```shell
 $ make benchmark
