@@ -270,3 +270,82 @@ That the two isolation warnings now agree with each other, and that neither clai
 ### Future work
 
 Unchanged.
+
+## Step 5: Regression test for the isolation pin, and a correction to Step 2
+
+**Author:** builder-pg-contention
+
+### Prompt Context
+
+**Verbatim prompt:** "Two fixes from a second external review […] 1. Add a committed regression test for the isolation pin. Today, reverting inTx to serializable leaves the whole suite green (you flagged this yourself; the reviewer confirmed […]). Add a small deterministic Postgres-gated test that proves goqite's own transactions run at read committed […] 2. Correct the diary. The reviewer disproved (by repro) the diary claim that the old Postgres query double-delivered only with near-zero timeouts via EvalPlanQual rechecking timeout eligibility. Actual mechanics: the id subquery is an InitPlan evaluated once; after the lock wait, EvalPlanQual rechecks only the outer `id = <id>` condition […] Verify this against your own understanding […]"
+**Interpretation:** Close the coverage gap I reported in Step 2 with a committed test, and correct the mechanism I got wrong in Step 2's "What I learned" — after checking it myself rather than taking the correction on faith.
+**Inferred intent:** Make the isolation half of the fix defended by CI, and leave the diary's technical account accurate for whoever reads it next.
+
+### What I did
+
+Added `/goqite_internal_test.go` (`package goqite`, so it can reach the unexported `inTx`). It opens its own pool, pins it to a single connection, raises that connection's `default_transaction_isolation` to serializable the way a hardened server would, then runs `show transaction_isolation` inside `q.inTx` and asserts `read committed`.
+
+Then I checked the correction with `explain (verbose)` on the old query and with a two-session repro.
+
+### Why
+
+The single connection and the raised session default are what give the test teeth. Asserting `read committed` against a default-configured server would pass with `opts = nil` too, which is exactly the regression Step 3 was about; raising the default first means the test fails unless the level is pinned deliberately.
+
+The test connects directly instead of using `internaltesting.NewPostgreSQLDB`, because `internal/testing` imports this package and an in-package test file cannot import it back. It needs no table, only a connection.
+
+### What worked
+
+The test catches both ways the pin can be lost. Reverting to `sql.LevelSerializable`:
+
+```
+goqite_internal_test.go:36: Expected "read committed", but got "serializable" (type string)
+--- FAIL: TestQueue_inTx (0.02s)
+```
+
+and reverting to `nil` gives the identical failure, since the connection's raised default takes over. Restored, it passes in 0.02s. Full suite green for both flavors, `go vet` clean, `golangci-lint run` reports `0 issues.`
+
+### What didn't work
+
+My Step 2 account of the double-delivery mechanism was wrong, and the reviewer is right. I claimed EvalPlanQual re-evaluates the whole `where` clause against the updated row, so `$3 >= timeout` would filter the losing receiver out unless the queue timeout was near zero. That is not what the plan does. `explain (verbose)` on the old query shows why:
+
+```
+Update on public.goqite
+  InitPlan 1
+    ->  Limit
+          ->  Sort
+                ->  Bitmap Heap Scan on public.goqite goqite_1
+                      Filter: ((goqite_1.received < 3) AND (now() >= goqite_1.timeout))
+  ->  Index Scan using goqite_pkey on public.goqite
+        Index Cond: (goqite.id = (InitPlan 1).col1)
+```
+
+The timeout and received predicates live inside `InitPlan 1`, which is uncorrelated and evaluated exactly once. The outer scan's only condition is `id = (InitPlan 1).col1`, a cached constant. So the EvalPlanQual recheck asks only "is this still the row with that id", which is trivially true, and the losing receiver updates it again.
+
+Two sessions against the old query, with the visibility timeout set five minutes ahead — nowhere near zero — confirm it. Session A takes the head message and holds its transaction open; session B blocks, then commits after A:
+
+```
+ body  | received
+-------+----------
+ msg-1 |        2
+ msg-2 |        0
+```
+
+Both receivers took `msg-1`, and `msg-2` was never delivered at all. The same scenario against the fixed query gives `msg-1 | 1` and `msg-2 | 1`. Since the `received < 3` guard also lives in the InitPlan, repeated collisions can push `received` past `MaxReceive`, so a message can be delivered more times than configured.
+
+### What I learned
+
+An uncorrelated subquery in a `where` clause is not a guard that holds for the life of the statement. It is a constant computed once, and everything expressed inside it — visibility, receive count, queue name — stops being enforced the moment another transaction changes the row. The predicates *look* like they protect the update, and the plan is where you find out they do not. Reading the plan would have corrected me in Step 2 had I looked instead of reasoning from how I assumed EvalPlanQual worked.
+
+This also raises how serious the pre-fix bug was. The reported symptom was 40001 storms under serializable, but the same query at read committed loses messages and over-delivers, silently. Landing the two changes together was not merely tidy sequencing, as Step 1 framed it; either one alone is a real bug.
+
+### What was tricky
+
+Making the new test fail for the right reason. An assertion of `read committed` on an ordinary server is satisfied by three different implementations — the pin, nil options, and anything else that happens to inherit the default — so it would have been a test that looks like coverage while proving nothing. Raising the session default first is the whole point of it.
+
+### What warrants review
+
+That `/goqite_internal_test.go` is the only file in `package goqite` under test, and whether reaching into the unexported `inTx` is acceptable versus asserting the level through a public call. I chose the internal test because it names the thing being defended.
+
+### Future work
+
+Unchanged. The Step 2 text is left as written, with this step as its correction.
