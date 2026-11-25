@@ -11,21 +11,14 @@ on:
     - cron: "14 7 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
+
 permissions:
   contents: read
+  issues: write
 
 jobs:
   govulncheck:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version: stable
-          check-latest: true
-
-      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+    uses: maragudk/workflows/.github/workflows/security.yml@main

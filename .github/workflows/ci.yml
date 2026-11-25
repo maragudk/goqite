@@ -12,53 +12,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: ${{ github.ref_name != 'main' }}
 
+permissions:
+  contents: read
+
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17
-        ports:
-          - "5433:5432"
-        env:
-          POSTGRES_USER: "test"
-          POSTGRES_PASSWORD: "test"
-          POSTGRES_DB: "template1"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          check-latest: true
-
-      - name: Build
-        run: go build ./...
-
-      - name: Test
-        run: go test -shuffle on ./...
-
   lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    if: ${{ github.triggering_actor != 'dependabot[bot]' }}
+    uses: maragudk/workflows/.github/workflows/lint.yml@main
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          check-latest: true
-
-      - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
+  test:
+    uses: maragudk/workflows/.github/workflows/test.yml@main
+    with:
+      postgres: true
